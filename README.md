@@ -27,11 +27,6 @@ In case of any change in the event information, miners should publish the new bl
 
 ## TimeLine 
 
-Markdown | Less | Pretty
---- | --- | ---
-*Still* | `renders` | **nicely**
-1 | 2 | 3
-
 **Description** | **Expected Date**  | 
 --- | --- |
 Architecture Design | Apr, 22| 
