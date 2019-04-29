@@ -11,7 +11,7 @@ In case of any change in the event information, miners should publish the new bl
 [GO Resources](https://thenewstack.io/make-a-restful-json-api-go/)
 
 
-## Functionality:
+## Functionality
 -  Blocks will be produced with detail description of event so Blockchain contains Organizer ID (public key) and the event detail as key value pair.  
 -  Miners will publish event detail in the blockchain after solving the hash puzzel.
 -  Peers will see the list of events and get updated about upcomming events. 
@@ -27,44 +27,25 @@ In case of any change in the event information, miners should publish the new bl
 
 ## TimeLine 
 
------------------------ + ------------------------------------------------------------
-Description                 Expected Date 
------------------------ + ------------------------------------------------------------
-Architecture Design         Apr, 22
------------------------ + ------------------------------------------------------------
-Data Structure              Apr, 23
------------------------ + ------------------------------------------------------------
-Generate Block              Apr, 24
------------------------ + ------------------------------------------------------------
-Blocks being produced 
-with detail description     Apr, 25
-of event so BlockChain 
-contains Organizer ID 
-and the Event detail 
-as key value pair 
------------------------ + ------------------------------------------------------------
-Miner will publish          Apr, 26
-event detail in the 
-blockChain after POW
------------------------ + ------------------------------------------------------------
-Peers will see the 
-list of events              Apr, 27
------------------------ + ------------------------------------------------------------
-Miners receives 
-transaction fee after
-any block generation        Apr, 28
------------------------ + ------------------------------------------------------------
-Progress Report             Apr, 29
------------------------ + ------------------------------------------------------------
-MidPoint Check              May, 1
------------------------ + ------------------------------------------------------------
-Optimize, debugging         May, 10 - May, 11
------------------------ + ------------------------------------------------------------
-Test and Wrap up            May, 12 - May, 13
------------------------ + ------------------------------------------------------------
-Progress Report and 
-Demo Preparation            May, 14 
------------------------ + ------------------------------------------------------------
+Markdown | Less | Pretty
+--- | --- | ---
+*Still* | `renders` | **nicely**
+1 | 2 | 3
+
+**Description** | **Expected Date**  | 
+--- | --- |
+Architecture Design | Apr, 22| 
+Data Structure  | Apr, 23| 
+Generate Block  | Apr, 24| 
+Block being produced with detail description of event so blockchaincontains organizer ID and the Event detail as key value pair | Apr, 25| 
+Miner will publish event detail in the blockChain after POW| Apr, 26| 
+Peers will see the list of events| Apr, 27| 
+Miners receives transaction fee after any block generation | Apr, 28| 
+Progress Report | Apr, 29| 
+MidPoint Check | May, 1| 
+Optimize, debugging  | May, 10 - May, 11| 
+Test and Wrap up  | May, 12 - May, 13| 
+Progress Report and Demo Preparation | May, 14| 
 
 
 ### Send HeartBeat:
