@@ -43,7 +43,7 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 * whether or not you will create a new block and send the new block to other peers.
 *
  */
-func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p2.MerklePatriciaTrie) HeartBeatData {
+func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie) HeartBeatData {
 	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr)
 
 	if generateNewBlock {
