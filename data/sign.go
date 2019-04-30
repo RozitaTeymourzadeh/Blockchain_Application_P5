@@ -1,18 +1,15 @@
 package data
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"golang.org/x/crypto/sha3"
-	"io"
+	"hash"
 	"os"
 )
 
@@ -125,38 +122,38 @@ func (key *VerificationKey) DecodeFromJson(jsonString string) error {
 	return json.Unmarshal([]byte(jsonString), key)
 }
 
-func Encrypt(data []byte, passphrase string) []byte {
-	block, _ := aes.NewCipher([]byte(HashKey(passphrase)))
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
-	}
-	ciphertext := gcm.Seal(nonce, nonce, data, nil)
-	return ciphertext
-}
+//func Encrypt(data []byte, passphrase string) []byte {
+//	block, _ := aes.NewCipher([]byte(HashKey(passphrase)))
+//	gcm, err := cipher.NewGCM(block)
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//	nonce := make([]byte, gcm.NonceSize())
+//	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+//		panic(err.Error())
+//	}
+//	ciphertext := gcm.Seal(nonce, nonce, data, nil)
+//	return ciphertext
+//}
 
-func Decrypt(data []byte, passphrase string) []byte {
-	key := []byte(HashKey(passphrase))
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err.Error())
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
-	nonceSize := gcm.NonceSize()
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		panic(err.Error())
-	}
-	return plaintext
-}
+//func Decrypt(data []byte, passphrase string) []byte {
+//	key := []byte(HashKey(passphrase))
+//	block, err := aes.NewCipher(key)
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//	gcm, err := cipher.NewGCM(block)
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//	nonceSize := gcm.NonceSize()
+//	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+//	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//	return plaintext
+//}
 
 
 /* HashKey
@@ -164,14 +161,14 @@ func Decrypt(data []byte, passphrase string) []byte {
 * To hash the block
 *
  */
-func HashKey(Key string) string {
-	var hashStr string
-	hashStr = string(Key)
-	sum := sha3.Sum256([]byte(hashStr))
-	return "HashStart_" + hex.EncodeToString(sum[:]) + "_HashEnd"
-}
+//func HashKey(Key string) string {
+//	var hashStr string
+//	hashStr = string(Key)
+//	sum := sha3.Sum256([]byte(hashStr))
+//	return "HashStart_" + hex.EncodeToString(sum[:]) + "_HashEnd"
+//}
 
-func CipherConverter(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, err){
+func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
 	message := []byte(messageJson)
 	label := []byte("")
 	hash := sha256.New()
@@ -187,9 +184,48 @@ func CipherConverter(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, err)
 		os.Exit(1)
 	}
 	fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
-	return ciphertext, err
+	return ciphertext, hash, label, err
 }
 
 
+func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, error){
+	//messageByte := []byte(message)
+	var opts rsa.PSSOptions
+	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
+	PSSmessage := message
+	newhash := crypto.SHA256
+	pssh := newhash.New()
+	pssh.Write(PSSmessage)
+	hashed := pssh.Sum(nil)
+	signature, err := rsa.SignPSS(
+		rand.Reader,
+		privateKey,
+		newhash,
+		hashed,
+		&opts,
+	)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("PSS Signature : %x\n", signature)
+	return signature, err
+}
 
-l
+func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
+
+	plainText, err := rsa.DecryptOAEP(
+		hash,
+		rand.Reader,
+		privateKey,
+		ciphertext,
+		label,
+	)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
+	plainTextJson := string(plainText) //TODO Check if it is in byte or string
+	return plainTextJson, err
+}
