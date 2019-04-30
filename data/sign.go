@@ -1,11 +1,18 @@
 package data
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
+	"golang.org/x/crypto/sha3"
+	"io"
+	"os"
 )
 
 /* VerificationKey Struct
@@ -13,9 +20,14 @@ import (
 * Verification Key data structure
 *
  */
-type VerificationKey struct {
+type VerificationKeyJson struct {
 	PublicKey   string   `json:"publickey"` //DataStructure
 	PrivateKey  string  `json:"privatekey"`
+}
+
+type VerificationKey struct {
+	PublicKey   *rsa.PublicKey
+	PrivateKey  *rsa.PrivateKey
 }
 
 
@@ -24,10 +36,17 @@ type VerificationKey struct {
 * NewHeartBeatData() is a normal initial function which creates an instance
 *
  */
-func NewVerificationKey(PublicKey string, PrivateKey string) VerificationKey {
-	return VerificationKey{
+func NewVerificationKeyJson(PublicKey string, PrivateKey string) VerificationKeyJson {
+	return VerificationKeyJson{
 		PublicKey:  PublicKey,
 		PrivateKey: PrivateKey,
+	}
+}
+
+func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) VerificationKey {
+	return VerificationKey{
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
 	}
 }
 
@@ -38,11 +57,11 @@ func NewVerificationKey(PublicKey string, PrivateKey string) VerificationKey {
 * whether or not you will create a new block and send the new block to other peers.
 *
  */
-func RegisterVerificationKey() VerificationKey{
+func RegisterVerificationKey() VerificationKeyJson{
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
 	if err != nil {
-		return NewVerificationKey("", "")
+		return NewVerificationKeyJson("", "")
 	}
 
 	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
@@ -56,7 +75,7 @@ func RegisterVerificationKey() VerificationKey{
 	publicKey := privateKey.PublicKey
 	publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
 	if err != nil {
-		return NewVerificationKey("", "")
+		return NewVerificationKeyJson("", "")
 	}
 
 	publicKeyBlock := pem.Block{
@@ -69,8 +88,22 @@ func RegisterVerificationKey() VerificationKey{
 	//fmt.Println(privateKeyPem)
 	//fmt.Println(publicKeyPem)
 
-	return NewVerificationKey(publicKeyPem, privateKeyPem)
+	return NewVerificationKeyJson(publicKeyPem, privateKeyPem)
 }
+
+func GenerateKey() VerificationKey{
+	//publicKey := new(rsa.PublicKey)
+	//privateKey := new(rsa.PrivateKey)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		fmt.Println(err.Error)
+		os.Exit(1)
+	}
+	publicKey := &privateKey.PublicKey
+	return NewVerificationKey(privateKey, publicKey)
+}
+
+
 
 /* EncodeToJson()
 *
@@ -91,4 +124,48 @@ func (key *VerificationKey) DecodeFromJson(jsonString string) error {
 	return json.Unmarshal([]byte(jsonString), key)
 }
 
+func Encrypt(data []byte, passphrase string) []byte {
+	block, _ := aes.NewCipher([]byte(HashKey(passphrase)))
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		panic(err.Error())
+	}
+	ciphertext := gcm.Seal(nonce, nonce, data, nil)
+	return ciphertext
+}
 
+func Decrypt(data []byte, passphrase string) []byte {
+	key := []byte(HashKey(passphrase))
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+	nonceSize := gcm.NonceSize()
+	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err.Error())
+	}
+	return plaintext
+}
+
+
+/* HashKey
+*
+* To hash the block
+*
+ */
+func HashKey(Key string) string {
+	var hashStr string
+	hashStr = string(Key)
+	sum := sha3.Sum256([]byte(hashStr))
+	return "HashStart_" + hex.EncodeToString(sum[:]) + "_HashEnd"
+}
