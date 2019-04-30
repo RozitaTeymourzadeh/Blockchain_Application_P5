@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -169,3 +170,26 @@ func HashKey(Key string) string {
 	sum := sha3.Sum256([]byte(hashStr))
 	return "HashStart_" + hex.EncodeToString(sum[:]) + "_HashEnd"
 }
+
+func CipherConverter(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, err){
+	message := []byte(messageJson)
+	label := []byte("")
+	hash := sha256.New()
+	ciphertext, err := rsa.EncryptOAEP(
+		hash,
+		rand.Reader,
+		pubLicKey,
+		message,
+		label,
+	)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
+	return ciphertext, err
+}
+
+
+
+l
