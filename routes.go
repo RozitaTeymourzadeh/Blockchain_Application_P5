@@ -48,4 +48,16 @@ var routes = Routes{
 		"/start",
 		Start,
 	},
+	Route{
+		"GetEvent",
+		"GET",
+		"/getevent",
+		Event,
+	},
+	Route{
+		"PostEvent",
+		"POST",
+		"/postevent",
+		Event,
+	},
 }

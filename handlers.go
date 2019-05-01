@@ -430,7 +430,7 @@ func StartHeartBeat() {
 *
 */
 func StartTryingNonce(){
-	mpt:=p2.MerklePatriciaTrie{}
+	mpt:=p4.MerklePatriciaTrie{}
 	mpt.Initial()
 	mpt.Insert(p2.StringRandom(2),p2.StringRandom(5))
 	//block:=p2.Block{}
@@ -457,3 +457,35 @@ func StartTryingNonce(){
 		}
 	}
 }
+
+func Event(w http.ResponseWriter, r *http.Request) {
+
+	switch r.Method {
+	case "GET":
+		dir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("PWD:",dir)
+		http.ServeFile(w, r, "Event.html")
+	case "POST":
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		fmt.Fprintf(w, "HTTP Post = %v\n", r.PostForm)
+		eventId := r.FormValue("eventId")
+		eventName := r.FormValue("eventName")
+		eventDate := r.FormValue("eventDate")
+		eventDescription := r.FormValue("eventDescription")
+		fmt.Fprintf(w, "Event ID: %s\n", eventId)
+		fmt.Fprintf(w, "Event Name: %s\n", eventName)
+		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
+		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
+
+
+	default:
+		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
+	}
+}
+
