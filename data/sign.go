@@ -122,51 +122,6 @@ func (key *VerificationKey) DecodeFromJson(jsonString string) error {
 	return json.Unmarshal([]byte(jsonString), key)
 }
 
-//func Encrypt(data []byte, passphrase string) []byte {
-//	block, _ := aes.NewCipher([]byte(HashKey(passphrase)))
-//	gcm, err := cipher.NewGCM(block)
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	nonce := make([]byte, gcm.NonceSize())
-//	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-//		panic(err.Error())
-//	}
-//	ciphertext := gcm.Seal(nonce, nonce, data, nil)
-//	return ciphertext
-//}
-
-//func Decrypt(data []byte, passphrase string) []byte {
-//	key := []byte(HashKey(passphrase))
-//	block, err := aes.NewCipher(key)
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	gcm, err := cipher.NewGCM(block)
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	nonceSize := gcm.NonceSize()
-//	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-//	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	return plaintext
-//}
-
-
-/* HashKey
-*
-* To hash the block
-*
- */
-//func HashKey(Key string) string {
-//	var hashStr string
-//	hashStr = string(Key)
-//	sum := sha3.Sum256([]byte(hashStr))
-//	return "HashStart_" + hex.EncodeToString(sum[:]) + "_HashEnd"
-//}
 
 func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
 	message := []byte(messageJson)
@@ -183,12 +138,12 @@ func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, [
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
+	//fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
 	return ciphertext, hash, label, err
 }
 
 
-func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, error){
+func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, []byte, crypto.Hash, error){
 	//messageByte := []byte(message)
 	var opts rsa.PSSOptions
 	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
@@ -208,8 +163,8 @@ func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, error){
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Printf("PSS Signature : %x\n", signature)
-	return signature, err
+	//fmt.Printf("PSS Signature : %x\n", signature)
+	return signature, opts, hashed, newhash, err
 }
 
 func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
@@ -225,7 +180,28 @@ func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.Pr
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
+	//fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
 	plainTextJson := string(plainText) //TODO Check if it is in byte or string
 	return plainTextJson, err
+}
+
+func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte, newhash crypto.Hash, signature []byte) (bool,error){
+	isVerify := false
+	err := rsa.VerifyPSS(
+		publicKey,
+		newhash,
+		hashed,
+		signature,
+		&opts,
+	)
+	if err != nil {
+		fmt.Println("Verify Signature failed!!!")
+		isVerify = false
+		os.Exit(1)
+	} else {
+		fmt.Println("Verify Signature successful...")
+		isVerify = true
+	}
+
+	return isVerify, err
 }
