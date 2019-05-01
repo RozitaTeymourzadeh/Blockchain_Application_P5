@@ -1,4 +1,4 @@
-package Blockchain_Application_P5
+package p5
 
 import "net/http"
 

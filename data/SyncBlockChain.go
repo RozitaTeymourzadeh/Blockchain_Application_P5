@@ -1,7 +1,7 @@
 package data
 
 import (
-	"MerklePatriciaTree/p4/Blockchain_Application_P5/p4"
+	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"fmt"
 	"sync"
 )
