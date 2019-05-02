@@ -29,7 +29,7 @@ In case of any change in the event information, miners should publish the new bl
 In this project transaction means the fee that each organizer should pay to publish their event information on the blockchain. Block publish fees are varies based of block data size. Transaction object is shown here:
 ```go
 type Transaction struct {
-	PublicKey   		*rsa.PublicKey
+	publicKey   		*rsa.PublicKey
 	eventId     		string
 	eventName     		string
 	timestamp  		int64
