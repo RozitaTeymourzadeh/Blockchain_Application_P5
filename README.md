@@ -32,28 +32,35 @@ type Transaction struct {
 	PublicKey   		*rsa.PublicKey
 	eventId     		string
 	eventName     		string
-	Timestamp  			int64
-	eventDescription    string
+	Timestamp  		int64
+	eventDescription    	string
 	transactionFee    	string
 }
 ```
-### Public and Private Key
-Organizers will get key token from rsa package library to get registered and able to sign their request and broadcast it to the miners for publish it on the blockchain.
+Some of the information in the transaction struct is provided by the organizers via HTML platform shown here.
+![Event Information](blockchain.png)
 
-
-
-### Registration:
+### Registration
 1. After a new node is launched, it will register to get public and private key from rsa golang package library "crypto/rsa" as an Id(nodeId). 
-2. Then, the node will go to any peer on its PeerList to download the current BlockChain and list of miners. 
-3. After registration, the node will start to send HeartBeat for every 5~10 seconds.
+2. Then, the node will go to any peer on its PeerList to download the current BlockChain and list of the miners. 
+3. After registration, the node will start to send his request via custom HeartBeat designed for sending request before block generation. The organizer only can send request if they have enough money to publish the block.
 
-### Block Validation
-Miners receive transaction request and validate it and 
+### Public and Private Key
+the organizers will get key token from rsa package library to registere and able to sign their request and broadcast it to the miners for publish it on the blockchain.
 
 ### Download
+Every node should download the blockchain with the peerlist and public key list to send request to the miners. 
+
+### Block Validation
+Miners receive transaction request and stor it on their pool list to validate it based on the following criteria:
+The request is valid if: 
+- The organizer only can send request if they have enough balance to publish the block.
+- If their signature is valid 
+if the above conditions have not been met, the miners ignore the request.
+
 ### Send HeartBeat
 1. Every user would hold a PeerList of up to 32 peer nodes. (32 is the number Ethereum uses.) The PeerList can temporarily hold more than 32 nodes, but before sending HeartBeats, a node will first re-balance the PeerList by choosing the 32 closest peers. "Closest peers" is defined by this: Sort all peers' Id, insert SelfId, consider the list as a cycle, and choose 16 nodes at each side of SelfId. For example, if SelfId is 10, PeerList is [7, 8, 9, 15, 16], then the closest 4 nodes are [8, 9, 15, 16]. HeartBeat is sent to every peer nodes at "/heartbeat/receive". 
-2. For each HeartBeat, a node would randomly decide (this will change in Project 4) if it will create a new block. If so, add the block information into HeartBeatData and send the HeartBeatData to others.
+2. For each Heartbeat, either heartbeat contains request or block. A node will create request if the node is organizer or generate block if the node is miner and is solving hash puzzel and has privilage to generate block. If so, add the block information into HeartBeatData and send the HeartBeatData to others.
 
 ### Receive HeartBeat:
 1. When a node received a HeartBeat, the node will add the sender’s IP address, along with sender’s PeerList into its own PeerList. At this time, the number of peers stored in PeerList might exceed 32 and it is ok. As described in previously, you don’t have to rebalance every time you receive a HeartBeat. Rebalance happens only before you send HeartBeats.
@@ -61,8 +68,8 @@ Miners receive transaction request and validate it and
 3. If the previous block doesn't exist, the node will ask every peer at "/block/{height}/{hash}" to download that block. 
 4. After making sure previous block exists, insert the block from HeartBeatData to the current BlockChain. 
 5. Since every node only has 32 peers, every peer will forward the new block to all peers according to its PeerList. That is to make sure every user in the network would receive the new block. For this project. Every HeartBeatData takes 2 hops, which means after a node received a HeartBeatData from the original block maker, the remaining hop times is 1.
-You are required to implement those Restful routes. You must not change the route name, route method, request or response.
 
+### API
 ```linux
 /getevent
 Method: GET
@@ -93,22 +100,6 @@ Description: Receive a heartbeat.
 
 /start
 Description: You can start the program by calling this route(be careful to start only once), or start the program during bootstrap.
-```
-Heartbeat internal fields shown here.
-
-```linux
-HeartBeatData
-    ifNewBlock, id(sender's Id), addr(sender's Addr), numberOfHops, blockJson, peerMapJson
-PeerList
-    selfId, peerMap, maxLength, mux(lock)
-RegisterData
-    assignedId, peerMapJson
-SyncBlockChain
-    bc(BlockChain), mux(lock)
-
-Additional functions of P2.BlockChain struct that may be helpful:
-
-GenBlock(), CheckParentHash()
 ```
 
 [GO Resources](https://thenewstack.io/make-a-restful-json-api-go/)
