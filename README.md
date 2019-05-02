@@ -1,4 +1,4 @@
-# BlockChainApplication_P5
+# Blockchain_Application_P5
 
 ## Blockchain Application : Event Publisher 
 The idea was inspiered by [Eventbrite](https://www.eventbrite.com/)
