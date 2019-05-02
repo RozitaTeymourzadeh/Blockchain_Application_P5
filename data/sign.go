@@ -13,9 +13,9 @@ import (
 	"os"
 )
 
-/* VerificationKey Struct
+/* VerificationKeyJson Struct
 *
-* Verification Key data structure
+* Verification Key data structure in Json format
 *
  */
 type VerificationKeyJson struct {
@@ -23,24 +23,35 @@ type VerificationKeyJson struct {
 	PrivateKey  string  `json:"privatekey"`
 }
 
+/* VerificationKey Struct
+*
+* Verification Key data structure
+*
+ */
 type VerificationKey struct {
 	PublicKey   *rsa.PublicKey
 	PrivateKey  *rsa.PrivateKey
 }
 
 
-/* NewVerificationKey()
+/* NewVerificationKeyJson()
 *
-* NewHeartBeatData() is a normal initial function which creates an instance
+* Return Verification data in Json format
 *
  */
-func NewVerificationKeyJson(PublicKey string, PrivateKey string) VerificationKeyJson {
+func NewVerificationKeyJson(publicKey string, privateKey string) VerificationKeyJson {
 	return VerificationKeyJson{
-		PublicKey:  PublicKey,
-		PrivateKey: PrivateKey,
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
 	}
 }
 
+
+/* NewVerificationKey()
+*
+* Return Verification data
+*
+ */
 func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) VerificationKey {
 	return VerificationKey{
 		PublicKey:  publicKey,
@@ -48,14 +59,12 @@ func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) Ver
 	}
 }
 
-/* PrepareHeartBeatData()
+/* GenerateKeyString()
 *
-* PrepareHeartBeatData() is used when you want to send a HeartBeat to other peers.
-* PrepareHeartBeatData would first create a new instance of HeartBeatData, then decide
-* whether or not you will create a new block and send the new block to other peers.
+* To generate key in string format
 *
  */
-func RegisterVerificationKey() VerificationKeyJson{
+func GenerateKeyString() VerificationKeyJson{
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
 	if err != nil {
@@ -89,6 +98,11 @@ func RegisterVerificationKey() VerificationKeyJson{
 	return NewVerificationKeyJson(publicKeyPem, privateKeyPem)
 }
 
+/* GenerateKey()
+*
+* To generate key
+*
+ */
 func GenerateKey() VerificationKey{
 	//publicKey := new(rsa.PublicKey)
 	//privateKey := new(rsa.PrivateKey)
@@ -100,7 +114,6 @@ func GenerateKey() VerificationKey{
 	publicKey := &privateKey.PublicKey
 	return NewVerificationKey(privateKey, publicKey)
 }
-
 
 
 /* EncodeToJson()
@@ -122,7 +135,11 @@ func (key *VerificationKey) DecodeFromJson(jsonString string) error {
 	return json.Unmarshal([]byte(jsonString), key)
 }
 
-
+/* Encrypt()
+*
+* To Encrypt message
+*
+ */
 func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
 	message := []byte(messageJson)
 	label := []byte("")
@@ -142,7 +159,35 @@ func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, [
 	return ciphertext, hash, label, err
 }
 
+/* Decrypt()
+*
+* To Decrypt message
+*
+ */
+func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
 
+	plainText, err := rsa.DecryptOAEP(
+		hash,
+		rand.Reader,
+		privateKey,
+		ciphertext,
+		label,
+	)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	//fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
+	plainTextJson := string(plainText) //TODO Check if it is in byte or string
+	return plainTextJson, err
+}
+
+
+/* Sign()
+*
+* To sign message
+*
+ */
 func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, []byte, crypto.Hash, error){
 	//messageByte := []byte(message)
 	var opts rsa.PSSOptions
@@ -167,24 +212,11 @@ func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, [
 	return signature, opts, hashed, newhash, err
 }
 
-func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
-
-	plainText, err := rsa.DecryptOAEP(
-		hash,
-		rand.Reader,
-		privateKey,
-		ciphertext,
-		label,
-	)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	//fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
-	plainTextJson := string(plainText) //TODO Check if it is in byte or string
-	return plainTextJson, err
-}
-
+/* Verify()
+*
+* To verify message
+*
+ */
 func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte, newhash crypto.Hash, signature []byte) (bool,error){
 	isVerify := false
 	err := rsa.VerifyPSS(
@@ -202,6 +234,5 @@ func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte,
 		fmt.Println("Verify Signature successful...")
 		isVerify = true
 	}
-
 	return isVerify, err
 }

@@ -1,58 +1,45 @@
 	package main
 
 	import (
-		//"MerklePatriciaTree/p3/cs686-blockchain-p3-RozitaTeymourzadeh/p3"
-		"MerklePatriciaTree/p4/Blockchain_Application_P5/data"
+		"MerklePatriciaTree/p5/Blockchain_Application_P5/data"
+		"MerklePatriciaTree/p5/Blockchain_Application_P5/p5"
 		"fmt"
-
-		//"crypto/rand"
-		//"crypto/rsa"
-		//"crypto/x509"
-		//"encoding/pem"
-		//"fmt"
-		//"log"
-		//"net/http"
-		//"os"
+		"log"
+		"net/http"
+		"os"
 	)
 
 	func main() {
-		//router := p3.NewRouter()
-		//if len(os.Args) > 1 {
-		//	log.Fatal(http.ListenAndServe(":" + os.Args[1], router))
-		//} else {
-		//	log.Fatal(http.ListenAndServe(":6686", router))
-		//}
 
-			//privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
-			//if err != nil {
-			//	return
-			//}
-			//
-			//privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
-			//privateKeyBlock := pem.Block{
-			//	Type:    "RSA PRIVATE KEY",
-			//	Headers: nil,
-			//	Bytes:   privateKeyDer,
-			//}
-			//privateKeyPem := string(pem.EncodeToMemory(&privateKeyBlock))
-			//
-			//publicKey := privateKey.PublicKey
-			//publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
-			//if err != nil {
-			//	return
-			//}
-			//
-			//publicKeyBlock := pem.Block{
-			//	Type:    "PUBLIC KEY",
-			//	Headers: nil,
-			//	Bytes:   publicKeyDer,
-			//}
-			//publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
-			//
-			//fmt.Println(privateKeyPem)
-			//fmt.Println(publicKeyPem)
+		NimaKey := data.GenerateKey()
+		RozitaKey := data.GenerateKey()
 
-			verificationKey := data.RegisterVerificationKey()
-			fmt.Println(verificationKey.PrivateKey)
-			fmt.Println(verificationKey.PublicKey)
+		fmt.Println("Private Key : ", RozitaKey.PrivateKey)
+		fmt.Println("Public key ", RozitaKey.PublicKey)
+		fmt.Println("Private Key : ", NimaKey.PrivateKey)
+		fmt.Println("Public key ", NimaKey.PublicKey)
+
+
+		message := "Hi I am Rozita !!!!!"
+		cipherTexttoNima, hash, label, _:= data.Encrypt(message, NimaKey.PublicKey)
+		fmt.Println("cipherTexttoNima is:", cipherTexttoNima )
+
+		signature, opts, hashed, newhash, _:= data.Sign(cipherTexttoNima, RozitaKey.PrivateKey)
+		fmt.Println("Rozita Signature is:", signature)
+
+		plainTextfromRozita, _ := data.Decrypt(cipherTexttoNima, hash , label ,NimaKey.PrivateKey)
+		fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
+
+		isVerified, _ := data.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
+		fmt.Println("Is Verified is:", isVerified)
+
+
+		router := p5.NewRouter()
+		if len(os.Args) > 1 {
+			log.Fatal(http.ListenAndServe(":" + os.Args[1], router))
+		} else {
+			log.Fatal(http.ListenAndServe(":6686", router))
+		}
+
+
 	}

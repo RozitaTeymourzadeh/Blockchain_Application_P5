@@ -484,7 +484,7 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Event Name: %s\n", eventName)
 		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
-
+		data.GenerateKey()
 
 	default:
 		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
