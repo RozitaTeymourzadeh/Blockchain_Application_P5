@@ -1,4 +1,4 @@
-package Blockchain_Application_P5
+package p5
 
 import "net/http"
 
@@ -47,5 +47,17 @@ var routes = Routes{
 		"GET",
 		"/start",
 		Start,
+	},
+	Route{
+		"GetEvent",
+		"GET",
+		"/getevent",
+		Event,
+	},
+	Route{
+		"PostEvent",
+		"POST",
+		"/postevent",
+		Event,
 	},
 }

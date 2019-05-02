@@ -1,9 +1,9 @@
-package Blockchain_Application_P5
+package p5
 
 import (
 	"MerklePatriciaTree/p3/cs686-blockchain-p3-RozitaTeymourzadeh/p2"
-	"MerklePatriciaTree/p4/Blockchain_Application_P5/data"
-	"MerklePatriciaTree/p4/Blockchain_Application_P5/p4"
+	"MerklePatriciaTree/p5/Blockchain_Application_P5/data"
+	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
@@ -405,7 +405,7 @@ func StartHeartBeat() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", p2.MerklePatriciaTrie{})
+		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", p4.MerklePatriciaTrie{})
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
@@ -430,7 +430,7 @@ func StartHeartBeat() {
 *
 */
 func StartTryingNonce(){
-	mpt:=p2.MerklePatriciaTrie{}
+	mpt:=p4.MerklePatriciaTrie{}
 	mpt.Initial()
 	mpt.Insert(p2.StringRandom(2),p2.StringRandom(5))
 	//block:=p2.Block{}
@@ -457,3 +457,37 @@ func StartTryingNonce(){
 		}
 	}
 }
+
+func Event(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("Event method is triggered")
+
+	switch r.Method {
+	case "GET":
+		dir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("PWD:",dir)
+		http.ServeFile(w, r, "Event.html")
+	case "POST":
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		fmt.Fprintf(w, "HTTP Post = %v\n", r.PostForm)
+		eventId := r.FormValue("eventId")
+		eventName := r.FormValue("eventName")
+		eventDate := r.FormValue("eventDate")
+		eventDescription := r.FormValue("eventDescription")
+		fmt.Fprintf(w, "Event ID: %s\n", eventId)
+		fmt.Fprintf(w, "Event Name: %s\n", eventName)
+		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
+		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
+		data.GenerateKey()
+
+	default:
+		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
+	}
+}
+
