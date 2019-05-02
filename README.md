@@ -104,26 +104,6 @@ Description: You can start the program by calling this route(be careful to start
 
 [GO Resources](https://thenewstack.io/make-a-restful-json-api-go/)
 
-Here's the workflow of the system:
-
-
-Heartbeat data is shown here: 
-
-```linux
-HeartBeatData
-    ifNewBlock, id(sender's Id), addr(sender's Addr), numberOfHops, blockJson, peerMapJson
-PeerList
-    selfId, peerMap, maxLength, mux(lock)
-RegisterData
-    assignedId, peerMapJson
-SyncBlockChain
-    bc(BlockChain), mux(lock)
-
-Additional functions of P2.BlockChain struct that may be helpful:
-
-GenBlock(), CheckParentHash()
-```
-
 ## TimeLine 
 
 **Description** | **Expected Date**  | 
