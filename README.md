@@ -32,7 +32,7 @@ type Transaction struct {
 	PublicKey   		*rsa.PublicKey
 	eventId     		string
 	eventName     		string
-	Timestamp  		int64
+	timestamp  		int64
 	eventDescription    	string
 	transactionFee    	string
 }
