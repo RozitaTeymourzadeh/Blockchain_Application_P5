@@ -1,7 +1,8 @@
 package data
 
 import (
-	"crypto/rsa"
+	//"crypto/rsa"
+	"encoding/json"
 )
 
 /* TransactionJson Struct
@@ -10,12 +11,13 @@ import (
 *
  */
 type TransactionJson struct {
-	publicKey   		string   `json:"publicKey"`
-	eventId     		string   `json:"eventId"`
-	eventName     		string   `json:"eventName"`
-	timestamp     		string   `json:"eventDate"`
-	eventDescription    string   `json:"eventDescription"`
-	transactionFee    	string   `json:"transactionFee"`
+	PublicKey   		string   `json:"publicKey"`
+	EventId     		string   `json:"eventId"`
+	EventName     		string   `json:"eventName"`
+	Timestamp     		string   `json:"eventDate"`
+	EventDescription    string   `json:"eventDescription"`
+	TransactionFee    	string   `json:"transactionFee"`
+	Balance				string	 `json:"balance"`
 }
 
 /* Transaction Struct
@@ -24,12 +26,14 @@ type TransactionJson struct {
 *
  */
 type Transaction struct {
-	publicKey   		*rsa.PublicKey
-	eventId     		string
-	eventName     		string
-	timestamp  			int64
-	eventDescription    string
-	transactionFee    	int
+	//*rsa.PublicKey
+	PublicKey   		string
+	EventId     		string
+	EventName     		string
+	Timestamp  			int64
+	EventDescription    string
+	TransactionFee    	int
+	Balance				int
 }
 
 /* NewTransactionJson()
@@ -37,14 +41,15 @@ type Transaction struct {
 * To return new transaction data in Json format
 *
  */
-func NewTransactionJson(publicKey string, eventId string, eventName string, timestamp string, eventDescription string, transactionFee string) TransactionJson {
+func NewTransactionJson(publicKey string, eventId string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
 	return TransactionJson{
-		publicKey :  publicKey,
-		eventId: eventId,
-		eventName: eventName,
-		timestamp: timestamp,
-		eventDescription: eventDescription,
-		transactionFee: transactionFee,
+		PublicKey :  publicKey,
+		EventId: eventId,
+		EventName: eventName,
+		Timestamp: timestamp,
+		EventDescription: eventDescription,
+		TransactionFee: transactionFee,
+		Balance: balance,
 	}
 }
 
@@ -53,14 +58,17 @@ func NewTransactionJson(publicKey string, eventId string, eventName string, time
 * To return new transaction data
 *
  */
-func NewTransaction(publicKey *rsa.PublicKey, eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int) Transaction {
+//publicKey *rsa.PublicKey
+func NewTransaction(publicKey string, eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
 	return Transaction{
-		publicKey:  publicKey,
-		eventId: eventId,
-		eventName: eventName,
-		timestamp: timestamp,
-		eventDescription: eventDescription,
-		transactionFee: transactionFee,
+
+		PublicKey:  publicKey,
+		EventId: eventId,
+		EventName: eventName,
+		Timestamp: timestamp,
+		EventDescription: eventDescription,
+		TransactionFee: transactionFee,
+		Balance: balance,
 	}
 }
 
@@ -72,4 +80,23 @@ func NewTransaction(publicKey *rsa.PublicKey, eventId string, eventName string, 
 func TransactionFeeCalculation(blockJson string) int{
 	transactionFee := (len(blockJson)* 2)/10
 	return transactionFee
+}
+
+/* EncodeToJson()
+*
+* To Encode Transaction from json format
+*
+ */
+func (transaction *Transaction) EncodeToJson() (string, error) {
+	jsonBytes, error := json.Marshal(transaction)
+	return string(jsonBytes), error
+}
+
+/* DecodeFromJson()
+*
+* To Decode HeartBeatData from json format
+*
+ */
+func (transaction *Transaction) DecodeFromJson(jsonString string) error {
+	return json.Unmarshal([]byte(jsonString), transaction)
 }

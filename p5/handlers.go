@@ -34,6 +34,9 @@ var RECEIVE_PATH = "/heartbeat/receive"
 var STOP_GEN_BLOCK = false
 var NONCE_ZERO ="00000"
 
+var newTransactionObject data.Transaction
+var mpt p4.MerklePatriciaTrie
+
 /* init()
 *
 * Initialization
@@ -48,9 +51,9 @@ func init() {
 
 
 	/*Init Block*/
-	mpt:=p4.MerklePatriciaTrie{}
+	mpt =p4.MerklePatriciaTrie{}
 	mpt.Initial()
-	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
+	//mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
 	block:=p4.Block{}
 	block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	block.Header.Nonce = NONCE_ZERO
@@ -446,7 +449,7 @@ func StartTryingNonce(){
 		sum := sha3.Sum256([]byte(hashPuzzle))
 
 		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO){
-			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ",hashPuzzel:",	hex.EncodeToString(sum[:]))
+			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
 			peerMapJson,_ :=Peers.PeerMapToJson()
 			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR,true , validateNonce, mpt)
 			ForwardHeartBeat(heartBeatData)
@@ -484,7 +487,34 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Event Name: %s\n", eventName)
 		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
-		data.GenerateKey()
+
+		//TODO to check for public key
+		//newKey := data.GenerateKey()
+		newKeyString := data.GenerateKeyString()
+		newPublicKey := newKeyString.PublicKey
+		newTimestamp := time.Now().Unix()
+
+		//eventId:= p2.StringRandom(16)
+
+		//TODO calculate transaction fee
+		//transactionFee:= data.TransactionFeeCalculation()
+		newTransactionFee := 5
+		newBalance := 100
+
+
+		//i64, _ := strconv.ParseInt(mileage, 10, 32)
+		//mileageInt := int32(i64)
+
+		newTransactionObject := data.NewTransaction(newPublicKey, eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
+		fmt.Println("Transaction:", newTransactionObject)
+		transactionJSON,_ := newTransactionObject.EncodeToJson()
+		fmt.Println("Transaction JSON:",transactionJSON)
+
+//newPublicKey
+		mpt.Insert(p4.StringRandom(2),transactionJSON)
+		fmt.Println("mpt:",mpt)
+
+
 
 	default:
 		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
