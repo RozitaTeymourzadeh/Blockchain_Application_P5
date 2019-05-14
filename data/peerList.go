@@ -2,6 +2,7 @@ package data
 
 import (
 	"container/ring"
+	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 type PeerList struct {
 	selfId int32
 	peerMap map[string]int32
+	peerMapPublicKey map[*rsa.PublicKey]int32
 	maxLength int32
 	mux sync.Mutex
 }
