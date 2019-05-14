@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"hash"
 	"os"
+	"errors"
 )
 
 /* VerificationKeyJson Struct
@@ -145,6 +146,26 @@ func ExportRsaPublicKeyAsPemStr(pubkey *rsa.PublicKey) (string, error) {
 	return string(pubkey_pem), nil
 }
 
+
+func ParseRsaPublicKeyFromPemStr(pubPEM string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pubPEM))
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block containing the key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		return pub, nil
+	default:
+		break // fall through
+	}
+	return nil, errors.New("Key type is not RSA")
+}
 /* EncodeToJson()
 *
 * To Encode HeartBeatData from json format

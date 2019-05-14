@@ -2,6 +2,7 @@ package data
 
 import (
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
+	"crypto/rsa"
 	"encoding/json"
 )
 
@@ -11,12 +12,14 @@ import (
 *
  */
 type HeartBeatData struct {
-	IfNewBlock  bool   `json:"ifNewBlock"`
-	Id          int32  `json:"id"`
-	BlockJson   string `json:"blockJson"`
-	PeerMapJson string `json:"peerMapJson"`
-	Addr        string `json:"addr"`
-	Hops        int32  `json:"hops"`
+	IfNewBlock  	bool   			`json:"ifNewBlock"`
+	Id          	int32  			`json:"id"`
+	BlockJson   	string 			`json:"blockJson"`
+	PeerMapJson 	string 			`json:"peerMapJson"`
+	Addr        	string 			`json:"addr"`
+	Hops        	int32			`json:"hops"`
+	PeerPublicKey 	*rsa.PublicKey `json:"peerPublicKey"`
+
 }
 
 
@@ -25,7 +28,7 @@ type HeartBeatData struct {
 * NewHeartBeatData() is a normal initial function which creates an instance
 *
  */
-func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string) HeartBeatData {
+func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string, peerPublicKey *rsa.PublicKey) HeartBeatData {
 	return HeartBeatData{
 		IfNewBlock:  ifNewBlock,
 		Id:          id,
@@ -33,6 +36,7 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 		PeerMapJson: peerMapJson,
 		Addr:        addr,
 		Hops:        2,
+		PeerPublicKey: peerPublicKey,
 	}
 }
 
@@ -43,18 +47,19 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 * whether or not you will create a new block and send the new block to other peers.
 *
  */
-func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie) HeartBeatData {
-	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr)
+func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie,peerPublicKey *rsa.PublicKey) HeartBeatData {
+	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey)
 
 	if generateNewBlock {
 		newBlock := sbc.GenBlock(mpt, nonce)
 		blockJson, _ := newBlock.EncodeToJSON()
-		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr)
+		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey)
 	}else{
-		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr)
+		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey)
 	}
 	return newHeartBeatData
 }
+
 
 /* EncodeToJson()
 *

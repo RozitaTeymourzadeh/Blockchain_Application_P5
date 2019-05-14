@@ -75,6 +75,8 @@ func init() {
 		Peers.Register(id)
 		SELF_ADDR="localhost"+os.Args[1]
 		Peers.Add(FIRST_PEER,6686)
+		publicKey,_:=data.ParseRsaPublicKeyFromPemStr("HARD_CODED_PEER1")
+		Peers.AddPublicKey(publicKey,6686)
 	} else {
 		Peers.Register(6686)
 		SELF_ADDR="localhost:6686"
@@ -115,9 +117,9 @@ func Start(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Private Key::", minerKey)
 
 
-	publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
-	Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
-
+	//publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
+	//Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
+	Peers.AddPublicKey(&minerKey.PublicKey,Peers.GetSelfId());
 
 	go StartTryingNonce()
 
@@ -426,7 +428,7 @@ func StartHeartBeat() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", p4.MerklePatriciaTrie{})
+		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"",p4.MerklePatriciaTrie{} ,&minerKey.PublicKey)
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
@@ -453,7 +455,7 @@ func StartHeartBeat() {
 func StartTryingNonce(){
 	mpt:=p4.MerklePatriciaTrie{}
 	mpt.Initial()
-	mpt.Insert(p2.StringRandom(2),p2.StringRandom(5))
+	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
 	//block:=p2.Block{}
 	//block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	//block.Header.Nonce = NONCE_ZERO
@@ -469,7 +471,7 @@ func StartTryingNonce(){
 		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO){
 			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
 			peerMapJson,_ :=Peers.PeerMapToJson()
-			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR,true , validateNonce, mpt)
+			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR,true , validateNonce, mpt,&minerKey.PublicKey)
 			ForwardHeartBeat(heartBeatData)
 			if STOP_GEN_BLOCK {
 				fmt.Println("Stop generating node!")
@@ -514,16 +516,10 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		newPublicKey := newUserKey.PublicKey
 		newTimestamp := time.Now().Unix()
 
-		//eventId:= p2.StringRandom(16)
-
 		//TODO calculate transaction fee
 		//transactionFee:= data.TransactionFeeCalculation()
 		newTransactionFee := 5
 		newBalance := 100
-
-
-		//i64, _ := strconv.ParseInt(mileage, 10, 32)
-		//mileageInt := int32(i64)
 
 		newTransactionObject := data.NewTransaction(&newPublicKey, eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
 		fmt.Println("Transaction:", newTransactionObject)
@@ -531,7 +527,7 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Transaction JSON:",transactionJSON)
 
 //newPublicKey
-		mpt.Insert(p4.StringRandom(2),transactionJSON)
+		mpt.Insert(eventId,transactionJSON)
 		fmt.Println("mpt:",mpt)
 
 		PeerMap := Peers.GetPeerMap()
@@ -564,9 +560,6 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		TransactionMap[eventId] = newTransactionObject
 
 		fmt.Println("TransactionMap Size:",len(TransactionMap))
-
-
-
 
 	default:
 		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
