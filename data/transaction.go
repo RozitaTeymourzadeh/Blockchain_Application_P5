@@ -42,9 +42,10 @@ type Transaction struct {
 * To return new transaction data in Json format
 *
  */
-func NewTransactionJson(publicKey string, eventId string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
+//publicKey string
+func NewTransactionJson(eventId string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
 	return TransactionJson{
-		PublicKey :  publicKey,
+		//PublicKey :  publicKey,
 		EventId: eventId,
 		EventName: eventName,
 		Timestamp: timestamp,
@@ -60,10 +61,10 @@ func NewTransactionJson(publicKey string, eventId string, eventName string, time
 *
  */
 //publicKey *rsa.PublicKey
-func NewTransaction(publicKey *rsa.PublicKey, eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
+func NewTransaction( eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
 	return Transaction{
 
-		PublicKey:  publicKey,
+		//PublicKey:  publicKey,
 		EventId: eventId,
 		EventName: eventName,
 		Timestamp: timestamp,

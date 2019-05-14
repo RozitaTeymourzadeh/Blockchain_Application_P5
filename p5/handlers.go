@@ -111,7 +111,7 @@ func Start(w http.ResponseWriter, r *http.Request) {
 
 	/* Start Trying Nonce */
 	//privateKey,verificationKeyJson := data.GenerateKeyString()
-	minerKey = data.GenerateKeyPair(2014)
+	minerKey = data.GenerateKeyPair(4096)
 
 	fmt.Println("Public Key:", minerKey.PublicKey)
 	fmt.Println("Private Key::", minerKey)
@@ -119,7 +119,7 @@ func Start(w http.ResponseWriter, r *http.Request) {
 
 	//publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
 	//Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
-	Peers.AddPublicKey(&minerKey.PublicKey,Peers.GetSelfId());
+	Peers.AddPublicKey(&minerKey.PublicKey,Peers.GetSelfId())
 
 	go StartTryingNonce()
 
@@ -512,21 +512,21 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		//newKey := data.GenerateKey()
 		//userPrivateKey, newUserKeyString := data.GenerateKeyString()
 
-		newUserKey := data.GenerateKeyPair(2014)
-		newPublicKey := newUserKey.PublicKey
+		//newUserKey := data.GenerateKeyPair(2014)
+		//newPublicKey := newUserKey.PublicKey
 		newTimestamp := time.Now().Unix()
 
 		//TODO calculate transaction fee
 		//transactionFee:= data.TransactionFeeCalculation()
 		newTransactionFee := 5
 		newBalance := 100
-
-		newTransactionObject := data.NewTransaction(&newPublicKey, eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
+		//&newPublicKey
+		newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
 		fmt.Println("Transaction:", newTransactionObject)
 		transactionJSON,_ := newTransactionObject.EncodeToJson()
 		fmt.Println("Transaction JSON:",transactionJSON)
 
-//newPublicKey
+		//newPublicKey
 		mpt.Insert(eventId,transactionJSON)
 		fmt.Println("mpt:",mpt)
 
@@ -538,13 +538,13 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		for publicKey, port := range PeerMap {
 			fmt.Printf("key[%s] value[%s]\n", publicKey, port)
 
-			cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&userKey.PublicKey)
+			cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&minerKey.PublicKey)
 
 			fmt.Println("cipherTextToMiner is:", cipherTextToMiner )
 			fmt.Println("hash is:", hash )
 			fmt.Println("label is:", label )
 
-			signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, userKey) //Private Key
+			signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, minerKey) //Private Key
 			fmt.Println("User Signature is:", signature)
 			fmt.Println("opts is:", opts)
 			fmt.Println("hashed is:", hashed)
