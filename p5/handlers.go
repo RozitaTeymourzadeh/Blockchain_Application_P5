@@ -5,6 +5,7 @@ import (
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/data"
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"bytes"
+	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,8 +35,12 @@ var RECEIVE_PATH = "/heartbeat/receive"
 var STOP_GEN_BLOCK = false
 var NONCE_ZERO ="00000"
 
+
 var newTransactionObject data.Transaction
 var mpt p4.MerklePatriciaTrie
+var TransactionMap  map[string]data.Transaction
+var userKey *rsa.PrivateKey
+var minerKey *rsa.PrivateKey
 
 /* init()
 *
@@ -49,7 +54,7 @@ func init() {
 	Peers = data.NewPeerList(Peers.GetSelfId(),32)
 	ifStarted = false
 
-
+	TransactionMap = make(map[string]data.Transaction)
 	/*Init Block*/
 	mpt =p4.MerklePatriciaTrie{}
 	mpt.Initial()
@@ -100,7 +105,20 @@ func Start(w http.ResponseWriter, r *http.Request) {
 	}else{
 		fmt.Println("First node: Skip downloading.")
 	}
+
+
 	/* Start Trying Nonce */
+	//privateKey,verificationKeyJson := data.GenerateKeyString()
+	minerKey = data.GenerateKeyPair(2014)
+
+	fmt.Println("Public Key:", minerKey.PublicKey)
+	fmt.Println("Private Key::", minerKey)
+
+
+	publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
+	Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
+
+
 	go StartTryingNonce()
 
 	/*Timer to send heartBeat periodically*/
@@ -490,8 +508,10 @@ func Event(w http.ResponseWriter, r *http.Request) {
 
 		//TODO to check for public key
 		//newKey := data.GenerateKey()
-		newKeyString := data.GenerateKeyString()
-		newPublicKey := newKeyString.PublicKey
+		//userPrivateKey, newUserKeyString := data.GenerateKeyString()
+
+		newUserKey := data.GenerateKeyPair(2014)
+		newPublicKey := newUserKey.PublicKey
 		newTimestamp := time.Now().Unix()
 
 		//eventId:= p2.StringRandom(16)
@@ -505,7 +525,7 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		//i64, _ := strconv.ParseInt(mileage, 10, 32)
 		//mileageInt := int32(i64)
 
-		newTransactionObject := data.NewTransaction(newPublicKey, eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
+		newTransactionObject := data.NewTransaction(&newPublicKey, eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
 		fmt.Println("Transaction:", newTransactionObject)
 		transactionJSON,_ := newTransactionObject.EncodeToJson()
 		fmt.Println("Transaction JSON:",transactionJSON)
@@ -513,6 +533,38 @@ func Event(w http.ResponseWriter, r *http.Request) {
 //newPublicKey
 		mpt.Insert(p4.StringRandom(2),transactionJSON)
 		fmt.Println("mpt:",mpt)
+
+		PeerMap := Peers.GetPeerMap()
+		fmt.Println("AskForBlock.Size of PeerMap:",len(PeerMap))
+		//key is address
+		//value is id
+		// Send heart beat to every node !
+		for publicKey, port := range PeerMap {
+			fmt.Printf("key[%s] value[%s]\n", publicKey, port)
+
+			cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&userKey.PublicKey)
+
+			fmt.Println("cipherTextToMiner is:", cipherTextToMiner )
+			fmt.Println("hash is:", hash )
+			fmt.Println("label is:", label )
+
+			signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, userKey) //Private Key
+			fmt.Println("User Signature is:", signature)
+			fmt.Println("opts is:", opts)
+			fmt.Println("hashed is:", hashed)
+			fmt.Println("newhash is:", newhash)
+		}
+
+		//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
+		//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
+
+		//isVerified, _ := p5.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
+		//fmt.Println("Is Verified is:", isVerified)
+
+		TransactionMap[eventId] = newTransactionObject
+
+		fmt.Println("TransactionMap Size:",len(TransactionMap))
+
 
 
 

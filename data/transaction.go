@@ -2,6 +2,7 @@ package data
 
 import (
 	//"crypto/rsa"
+	"crypto/rsa"
 	"encoding/json"
 )
 
@@ -27,7 +28,7 @@ type TransactionJson struct {
  */
 type Transaction struct {
 	//*rsa.PublicKey
-	PublicKey   		string
+	PublicKey   		*rsa.PublicKey
 	EventId     		string
 	EventName     		string
 	Timestamp  			int64
@@ -59,7 +60,7 @@ func NewTransactionJson(publicKey string, eventId string, eventName string, time
 *
  */
 //publicKey *rsa.PublicKey
-func NewTransaction(publicKey string, eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
+func NewTransaction(publicKey *rsa.PublicKey, eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
 	return Transaction{
 
 		PublicKey:  publicKey,

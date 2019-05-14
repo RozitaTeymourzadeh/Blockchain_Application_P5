@@ -64,11 +64,11 @@ func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) Ver
 * To generate key in string format
 *
  */
-func GenerateKeyString() VerificationKeyJson{
+func GenerateKeyString() (*rsa.PrivateKey,VerificationKeyJson){
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
 	if err != nil {
-		return NewVerificationKeyJson("", "")
+		return privateKey,NewVerificationKeyJson("", "")
 	}
 
 	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
@@ -82,7 +82,7 @@ func GenerateKeyString() VerificationKeyJson{
 	publicKey := privateKey.PublicKey
 	publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
 	if err != nil {
-		return NewVerificationKeyJson("", "")
+		return privateKey,NewVerificationKeyJson("", "")
 	}
 
 	publicKeyBlock := pem.Block{
@@ -95,7 +95,7 @@ func GenerateKeyString() VerificationKeyJson{
 	//fmt.Println(privateKeyPem)
 	//fmt.Println(publicKeyPem)
 
-	return NewVerificationKeyJson(publicKeyPem, privateKeyPem)
+	return privateKey,NewVerificationKeyJson(publicKeyPem, privateKeyPem)
 }
 
 /* GenerateKey()
@@ -103,7 +103,7 @@ func GenerateKeyString() VerificationKeyJson{
 * To generate key
 *
  */
-func GenerateKey() VerificationKey{
+func GenerateKeyFirst() VerificationKey{
 	//publicKey := new(rsa.PublicKey)
 	//privateKey := new(rsa.PrivateKey)
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -115,6 +115,35 @@ func GenerateKey() VerificationKey{
 	return NewVerificationKey(privateKey, publicKey)
 }
 
+func GenerateKeyPair(bitSize int) (*rsa.PrivateKey) {
+	reader := rand.Reader
+	key, err := rsa.GenerateKey(reader, bitSize)
+	checkError(err)
+	return key
+}
+
+
+func checkError(err error) {
+	if err != nil {
+		fmt.Println("Fatal error ", err.Error())
+		os.Exit(1)
+	}
+}
+
+func ExportRsaPublicKeyAsPemStr(pubkey *rsa.PublicKey) (string, error) {
+	pubkey_bytes, err := x509.MarshalPKIXPublicKey(pubkey)
+	if err != nil {
+		return "", err
+	}
+	pubkey_pem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PUBLIC KEY",
+			Bytes: pubkey_bytes,
+		},
+	)
+
+	return string(pubkey_pem), nil
+}
 
 /* EncodeToJson()
 *
