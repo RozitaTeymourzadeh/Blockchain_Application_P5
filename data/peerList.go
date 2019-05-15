@@ -74,6 +74,18 @@ func (peers *PeerList) GetPeerMap() map[string]int32{
 * To return the peerMap
 *
  */
+func (peers *PeerList) GetPublicKeyMap() map[*rsa.PublicKey]int32{
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	return peers.peerPublicKeyMap
+}
+
+
+/* GetMaxLength()
+*
+* To return the peerMap
+*
+ */
 func (peers *PeerList) GetMaxLength() int32{
 	return peers.maxLength
 }

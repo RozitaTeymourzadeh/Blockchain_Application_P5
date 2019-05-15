@@ -38,8 +38,10 @@ var NONCE_ZERO ="00000"
 
 var newTransactionObject data.Transaction
 var mpt p4.MerklePatriciaTrie
+
+
 var TransactionMap  map[string]data.Transaction
-var userKey *rsa.PrivateKey
+//var userKey *rsa.PrivateKey
 var minerKey *rsa.PrivateKey
 
 /* init()
@@ -56,9 +58,9 @@ func init() {
 
 	TransactionMap = make(map[string]data.Transaction)
 	/*Init Block*/
-	mpt =p4.MerklePatriciaTrie{}
+	mpt = p4.MerklePatriciaTrie{}
 	mpt.Initial()
-	//mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
+	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
 	block:=p4.Block{}
 	block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	block.Header.Nonce = NONCE_ZERO
@@ -100,7 +102,6 @@ func Start(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Host is : ", r.Host)
 	SELF_ADDR = r.Host
-	//r.Host: localhost:6686
 	if r.Host != FIRST_PEER{
 		fmt.Println("Not First node: download().")
 		Download()
@@ -110,7 +111,6 @@ func Start(w http.ResponseWriter, r *http.Request) {
 
 
 	/* Start Trying Nonce */
-	//privateKey,verificationKeyJson := data.GenerateKeyString()
 	minerKey = data.GenerateKeyPair(4096)
 
 	fmt.Println("Public Key:", minerKey.PublicKey)
@@ -120,7 +120,6 @@ func Start(w http.ResponseWriter, r *http.Request) {
 	//publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
 	//Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
 	Peers.AddPublicKey(&minerKey.PublicKey,Peers.GetSelfId())
-
 	go StartTryingNonce()
 
 	/*Timer to send heartBeat periodically*/
@@ -294,9 +293,10 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 	if Heart.Addr ==  SELF_ADDR {
 		return
 	}
+	Peers.AddPublicKey(Heart.PeerPublicKey,Heart.Id)
 	Peers.Add(Heart.Addr, Heart.Id)
 	Peers.InjectPeerMapJson(Heart.PeerMapJson,  SELF_ADDR)
-	if Heart.IfNewBlock {
+	if Heart.IfNewBlock && Heart.IfValidTransaction {
 		heartBlock := p4.Block{}
 		heartBlock.DecodeFromJSON(Heart.BlockJson)
 
@@ -428,7 +428,7 @@ func StartHeartBeat() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"",p4.MerklePatriciaTrie{} ,&minerKey.PublicKey)
+		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", mpt ,&minerKey.PublicKey,false,"",0)
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
@@ -453,27 +453,53 @@ func StartHeartBeat() {
 *
 */
 func StartTryingNonce(){
-	mpt:=p4.MerklePatriciaTrie{}
-	mpt.Initial()
-	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
+	//mpt.Initial()
+	//mpt.Insert(p2.String(2),p2.String(5))
 	//block:=p2.Block{}
 	//block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	//block.Header.Nonce = NONCE_ZERO
 	//SBC.Insert(block)
+	isValidTransaction := false
 	for {
 	GetLatestBlock:
 		blocks := SBC.GetLatestBlocks()
-		STOP_GEN_BLOCK = false
-		validateNonce := p2.StringRandom(16)
+		STOP_GEN_BLOCK  = false
+		var transactionJSON string
+		var tempTransactionObject data.Transaction
+		for eventId, transactionObject := range TransactionMap {
+			if transactionObject.Balance >= transactionObject.TransactionFee {
+				//TODO: Add Signature
+				isValidTransaction=true
+				transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
+				//TODO check how to add
+				Heart.Balance = Heart.Balance + transactionObject.TransactionFee
+				transactionJSON,_ = transactionObject.EncodeToJson()
+				tempTransactionObject = transactionObject
+				goto POW
+			} else {
+				delete(TransactionMap, eventId)
+				fmt.Println("Transaction  Peer:", Peers.GetSelfId(),
+					" is failed. Balance =", transactionObject.Balance)
+			}
+		}
+	POW:
+		validateNonce := p4.StringRandom(16)
 		hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(mpt.GetRoot())
 		sum := sha3.Sum256([]byte(hashPuzzle))
 
 		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO){
 			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
 			peerMapJson,_ :=Peers.PeerMapToJson()
-			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR,true , validateNonce, mpt,&minerKey.PublicKey)
+			transactionJSON,_=tempTransactionObject.EncodeToJson()
+			mpt.Insert(tempTransactionObject.EventId,transactionJSON)
+			fmt.Println("test.mpt:", mpt)
+
+			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR, true , validateNonce, mpt,&minerKey.PublicKey, isValidTransaction,transactionJSON, Heart.Balance)
 			ForwardHeartBeat(heartBeatData)
-			if STOP_GEN_BLOCK {
+			isValidTransaction=false
+
+			delete(TransactionMap, tempTransactionObject.EventId)
+			if STOP_GEN_BLOCK  {
 				fmt.Println("Stop generating node!")
 				goto GetLatestBlock
 			}
@@ -508,56 +534,41 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
 
-		//TODO to check for public key
-		//newKey := data.GenerateKey()
-		//userPrivateKey, newUserKeyString := data.GenerateKeyString()
-
-		//newUserKey := data.GenerateKeyPair(2014)
-		//newPublicKey := newUserKey.PublicKey
 		newTimestamp := time.Now().Unix()
 
 		//TODO calculate transaction fee
 		//transactionFee:= data.TransactionFeeCalculation()
 		newTransactionFee := 5
 		newBalance := 100
-		//&newPublicKey
 		newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
 		fmt.Println("Transaction:", newTransactionObject)
 		transactionJSON,_ := newTransactionObject.EncodeToJson()
 		fmt.Println("Transaction JSON:",transactionJSON)
+		TransactionMap[eventId] = newTransactionObject
 
-		//newPublicKey
-		mpt.Insert(eventId,transactionJSON)
-		fmt.Println("mpt:",mpt)
-
-		PeerMap := Peers.GetPeerMap()
-		fmt.Println("AskForBlock.Size of PeerMap:",len(PeerMap))
-		//key is address
-		//value is id
-		// Send heart beat to every node !
-		for publicKey, port := range PeerMap {
-			fmt.Printf("key[%s] value[%s]\n", publicKey, port)
-
-			cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&minerKey.PublicKey)
-
-			fmt.Println("cipherTextToMiner is:", cipherTextToMiner )
-			fmt.Println("hash is:", hash )
-			fmt.Println("label is:", label )
-
-			signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, minerKey) //Private Key
-			fmt.Println("User Signature is:", signature)
-			fmt.Println("opts is:", opts)
-			fmt.Println("hashed is:", hashed)
-			fmt.Println("newhash is:", newhash)
-		}
+		//Alper PeerMap or PublicKeyMap
+		//publicKeyMap := Peers.GetPublicKeyMap()
+		//for publicKey, port := range publicKeyMap {
+		//	fmt.Printf("key[%s] value[%s]\n", publicKey, port)
+		//
+		//	cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&minerKey.PublicKey)
+		//
+		//	fmt.Println("cipherTextToMiner is:", cipherTextToMiner )
+		//	fmt.Println("hash is:", hash )
+		//	fmt.Println("label is:", label )
+		//
+		//	signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, minerKey) //Private Key
+		//	fmt.Println("User Signature is:", signature)
+		//	fmt.Println("opts is:", opts)
+		//	fmt.Println("hashed is:", hashed)
+		//	fmt.Println("newhash is:", newhash)
+		//}
 
 		//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
 		//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
 
 		//isVerified, _ := p5.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
 		//fmt.Println("Is Verified is:", isVerified)
-
-		TransactionMap[eventId] = newTransactionObject
 
 		fmt.Println("TransactionMap Size:",len(TransactionMap))
 
