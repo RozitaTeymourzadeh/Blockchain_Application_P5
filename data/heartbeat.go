@@ -55,7 +55,8 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie,peerPublicKey *rsa.PublicKey, ifValidTransaction bool, transactionInfoJson string, balance int) HeartBeatData {
 	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,ifValidTransaction, transactionInfoJson, balance)
 
-	if generateNewBlock && ifValidTransaction {
+	// && ifValidTransaction
+	if generateNewBlock {
 		newBlock := sbc.GenBlock(mpt, nonce)
 		blockJson, _ := newBlock.EncodeToJSON()
 		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey,ifValidTransaction ,transactionInfoJson ,balance)

@@ -37,7 +37,7 @@ var NONCE_ZERO ="00000"
 
 
 var newTransactionObject data.Transaction
-var mpt p4.MerklePatriciaTrie
+//var mpt p4.MerklePatriciaTrie
 
 
 var TransactionMap  map[string]data.Transaction
@@ -58,7 +58,7 @@ func init() {
 
 	TransactionMap = make(map[string]data.Transaction)
 	/*Init Block*/
-	mpt = p4.MerklePatriciaTrie{}
+	mpt := p4.MerklePatriciaTrie{}
 	mpt.Initial()
 	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
 	block:=p4.Block{}
@@ -296,7 +296,8 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 	Peers.AddPublicKey(Heart.PeerPublicKey,Heart.Id)
 	Peers.Add(Heart.Addr, Heart.Id)
 	Peers.InjectPeerMapJson(Heart.PeerMapJson,  SELF_ADDR)
-	if Heart.IfNewBlock && Heart.IfValidTransaction {
+	//&& Heart.IfValidTransaction
+	if Heart.IfNewBlock {
 		heartBlock := p4.Block{}
 		heartBlock.DecodeFromJSON(Heart.BlockJson)
 
@@ -428,7 +429,7 @@ func StartHeartBeat() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", mpt ,&minerKey.PublicKey,false,"",0)
+		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", p4.MerklePatriciaTrie{} ,&minerKey.PublicKey,false,"",0)
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
@@ -453,7 +454,8 @@ func StartHeartBeat() {
 *
 */
 func StartTryingNonce(){
-	//mpt.Initial()
+	mpt:=p4.MerklePatriciaTrie{}
+	mpt.Initial()
 	//mpt.Insert(p2.String(2),p2.String(5))
 	//block:=p2.Block{}
 	//block.Initial(1,"gensis",mpt,NONCE_ZERO)
