@@ -4,6 +4,7 @@ import (
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"crypto/rsa"
 	"encoding/json"
+	//"fmt"
 )
 
 /* HeartBeatData
@@ -59,9 +60,9 @@ func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string,
 	if generateNewBlock {
 		newBlock := sbc.GenBlock(mpt, nonce)
 		blockJson, _ := newBlock.EncodeToJSON()
-		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey,ifValidTransaction ,transactionInfoJson ,balance)
+		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey,true ,transactionInfoJson ,balance)
 	}else{
-		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,ifValidTransaction ,transactionInfoJson ,balance)
+		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,false ,transactionInfoJson ,balance)
 	}
 	return newHeartBeatData
 }

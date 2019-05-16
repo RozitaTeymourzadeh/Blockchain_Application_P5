@@ -301,6 +301,7 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 		heartBlock := p4.Block{}
 		heartBlock.DecodeFromJSON(Heart.BlockJson)
 
+
 		// pow
 		receivedPuzzle := heartBlock.Header.ParentHash + heartBlock.Header.Nonce + heartBlock.Value.GetRoot()
 		sum := sha3.Sum256([]byte(receivedPuzzle))
@@ -314,15 +315,29 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			if heartBlock.Header.Height == 1 {
-				SBC.Insert(heartBlock)
+			if (heartBlock.Header.Height == 1) {
+				if Heart.Balance == 0 {
+
+				}else{
+					SBC.Insert(heartBlock)
+				}
 			} else {
 				_, flag := SBC.GetBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
 				if flag {
-					SBC.Insert(heartBlock)
+					fmt.Println("No.Gap.Inserting Heart Beat Block:",heartBlock)
+					fmt.Println("No.Gap.SBC:",SBC)
+					if Heart.Balance == 0 {
+					}else {
+						SBC.Insert(heartBlock)
+					}
 				} else {
+					fmt.Println("Gap.Inserting Heart Beat Block:",heartBlock)
+					fmt.Println("Gap.SBC:",SBC)
 					AskForBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
-					SBC.Insert(heartBlock)
+					if Heart.Balance == 0 {
+					}else{
+						SBC.Insert(heartBlock)
+					}
 				}
 			}
 		}else{
@@ -456,7 +471,7 @@ func StartHeartBeat() {
 func StartTryingNonce(){
 	mpt:=p4.MerklePatriciaTrie{}
 	mpt.Initial()
-	//mpt.Insert(p2.String(2),p2.String(5))
+	//mpt.Insert("a","apple")
 	//block:=p2.Block{}
 	//block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	//block.Header.Nonce = NONCE_ZERO
@@ -468,20 +483,22 @@ func StartTryingNonce(){
 		STOP_GEN_BLOCK  = false
 		var transactionJSON string
 		var tempTransactionObject data.Transaction
-		for eventId, transactionObject := range TransactionMap {
-			if transactionObject.Balance >= transactionObject.TransactionFee {
-				//TODO: Add Signature
-				isValidTransaction=true
-				transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
-				//TODO check how to add
-				Heart.Balance = Heart.Balance + transactionObject.TransactionFee
-				transactionJSON,_ = transactionObject.EncodeToJson()
-				tempTransactionObject = transactionObject
-				goto POW
-			} else {
-				delete(TransactionMap, eventId)
-				fmt.Println("Transaction  Peer:", Peers.GetSelfId(),
-					" is failed. Balance =", transactionObject.Balance)
+		if len(TransactionMap) != 0 {
+			for eventId, transactionObject := range TransactionMap {
+				if transactionObject.Balance >= transactionObject.TransactionFee {
+					//TODO: Add Signature
+					isValidTransaction = true
+					transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
+					//TODO check how to add
+					Heart.Balance = Heart.Balance + transactionObject.TransactionFee
+					transactionJSON, _ = transactionObject.EncodeToJson()
+					tempTransactionObject = transactionObject
+					goto POW
+				} else {
+					delete(TransactionMap, eventId)
+					fmt.Println("Transaction  Peer:", Peers.GetSelfId(),
+						" is failed. Balance =", transactionObject.Balance)
+				}
 			}
 		}
 	POW:
@@ -489,18 +506,17 @@ func StartTryingNonce(){
 		hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(mpt.GetRoot())
 		sum := sha3.Sum256([]byte(hashPuzzle))
 
-		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO){
-			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
-			peerMapJson,_ :=Peers.PeerMapToJson()
-			transactionJSON,_=tempTransactionObject.EncodeToJson()
+		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO) {
+			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ", hashPuzzel:", hex.EncodeToString(sum[:]))
+			peerMapJson,_ := Peers.PeerMapToJson()
+			transactionJSON,_= tempTransactionObject.EncodeToJson()
 			mpt.Insert(tempTransactionObject.EventId,transactionJSON)
-			fmt.Println("test.mpt:", mpt)
 
 			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR, true , validateNonce, mpt,&minerKey.PublicKey, isValidTransaction,transactionJSON, Heart.Balance)
 			ForwardHeartBeat(heartBeatData)
-			isValidTransaction=false
-
-			delete(TransactionMap, tempTransactionObject.EventId)
+			//isValidTransaction=false
+			//mpt.Initial()
+			//delete(TransactionMap, tempTransactionObject.EventId)
 			if STOP_GEN_BLOCK  {
 				fmt.Println("Stop generating node!")
 				goto GetLatestBlock
