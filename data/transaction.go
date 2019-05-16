@@ -4,6 +4,9 @@ import (
 
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
+	"log"
+	"sync"
 )
 
 /* TransactionJson Struct
@@ -37,6 +40,12 @@ type Transaction struct {
 	Balance				int
 }
 
+
+type TransactionPool struct {
+	Pool      map[string]Transaction `json:"pool"`
+	Confirmed map[string]bool        `json:"confirmed"`
+	mux       sync.Mutex
+}
 /* NewTransactionJson()
 *
 * To return new transaction data in Json format
@@ -79,8 +88,8 @@ func NewTransaction( eventId string, eventName string, timestamp int64, eventDes
 * To calculate transaction fee for generating block
 *
  */
-func TransactionFeeCalculation(blockJson string) int{
-	transactionFee := (len(blockJson)* 2)/10
+func TransactionFeeCalculation(Json string) int{
+	transactionFee := (len(Json)* 2)/10
 	return transactionFee
 }
 
@@ -101,4 +110,92 @@ func (transaction *Transaction) EncodeToJson() (string, error) {
  */
 func (transaction *Transaction) DecodeFromJson(jsonString string) error {
 	return json.Unmarshal([]byte(jsonString), transaction)
+}
+
+
+
+//Thread Safe
+func (txp *TransactionPool) AddToTransactionPool(tx Transaction) { //duplicates in transactinon pool
+	txp.mux.Lock()
+	defer txp.mux.Unlock()
+	if _, ok := txp.Pool[tx.EventId]; !ok {
+		log.Println("In AddToTransactionPool : Adding new TX:",tx.EventId)
+		txp.Pool[tx.EventId] = tx
+	}
+}
+
+//Thread Safe
+func (txp *TransactionPool) DeleteFromTransactionPool(transactionId string) {
+	txp.mux.Lock()
+	defer txp.mux.Unlock()
+	delete(txp.Pool, transactionId)
+	log.Println("In DeleteFromTransactionPool : Deleting  TX:",transactionId)
+}
+
+func (txp *TransactionPool) GetTransactionPoolMap() map[string]Transaction{
+	return txp.Pool
+}
+
+func (txp *TransactionPool) GetOneTxFromPool(TxPool TransactionPool) *Transaction{
+
+	if len(TxPool.GetTransactionPoolMap()) > 0 {
+		for _, transactionObject := range TxPool.GetTransactionPoolMap() {
+			if transactionObject.Balance >= transactionObject.TransactionFee {
+				transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
+				//TODO check how to add
+				//fmt.Println("transactionObject.Balance:",transactionObject.Balance)
+				return &transactionObject
+			}
+		}
+	}
+	return nil
+}
+
+func (txp *TransactionPool) AddToConfirmedPool(tx Transaction) { //duplicates in transactinon pool
+	txp.mux.Lock()
+	defer txp.mux.Unlock()
+
+	//TODO:BUG. Transaction ID's coming "" (NULL) we should return false in that case.
+	if(tx.EventId == ""){
+		fmt.Println("Tx ID is NULL. Do not add to CheckConfirmedPool,TX:",tx.EventId)
+		return
+	}
+	if _, ok := txp.Confirmed[tx.EventId]; !ok {
+		log.Println("In AddToConfirmedPool, TX:",tx.EventId)
+		txp.Confirmed[tx.EventId] = true
+	}
+}
+
+
+func (txp *TransactionPool) CheckConfirmedPool(tx Transaction) bool { //duplicates in transactinon pool
+	txp.mux.Lock()
+	defer txp.mux.Unlock()
+
+	//TODO:BUG. Transaction ID's coming "" (NULL) we should return false in that case.
+	if(tx.EventId ==""){
+		fmt.Println("Tx ID is NULL. Returning false for CheckConfirmedPool,TX:",tx.EventId)
+		return false
+	}
+	if _, ok := txp.Confirmed[tx.EventId]; ok {
+		fmt.Println("Tx is in ConfirmedPool,TX:",tx.EventId)
+		return true
+	}else{
+		fmt.Println("Tx is NOT in ConfirmedPool,TX:",tx.EventId)
+		return false
+	}
+}
+
+
+/*func NewTransactionPool() *TransactionPool {
+	Pool :=  make(map[string]p5.Transaction)
+	Confirmed:=make(map[string]bool)
+	mutex:=sync.Mutex{}
+	return &TransactionPool{Pool, Confirmed,mutex}
+}*/
+
+func NewTransactionPool() TransactionPool {
+	Pool :=  make(map[string]Transaction)
+	Confirmed:=make(map[string]bool)
+	mutex:=sync.Mutex{}
+	return TransactionPool{Pool, Confirmed,mutex}
 }
