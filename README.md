@@ -29,12 +29,13 @@ In case of any change in the event information, miners should publish the new bl
 In this project transaction means the fee that each organizer should pay to publish their event information on the blockchain. Block publish fees are varies based of block data size. Transaction object is shown here:
 ```go
 type Transaction struct {
-	publicKey   		*rsa.PublicKey
-	eventId     		string
-	eventName     		string
-	timestamp  		int64
-	eventDescription    	string
-	transactionFee    	string
+	PublicKey   		*rsa.PublicKey
+	EventId     		string
+	EventName     		string
+	Timestamp  		int64
+	EventDescription    	string
+	TransactionFee    	int
+	Balance			int
 }
 ```
 Some of the information in the transaction struct is provided by the organizers via HTML platform shown here.
@@ -79,9 +80,21 @@ Description: To access to the platform for register and create event information
 Method: POST
 Description: To register and publish the information.
 
-/showevent
+/getQueryEvent
 Method: GET
-Description: Display the PeerList and the BlockChain. Use the helpful function BlockChain.show() in the starter code to display the BlockChain, and add your own function to display the PeerList.
+Description: To search to the specific event using event ID.
+
+/getQueryEvent
+Method: POST
+Description: To see to the specific event using event ID.
+
+/show
+Method: GET
+Description: Display the PeerList and the BlockChain. 
+
+/canonical
+Method: GET
+Description: Display event information.
 
 /upload
 Method: GET
@@ -106,22 +119,22 @@ Description: You can start the program by calling this route(be careful to start
 
 ## TimeLine 
 
-**Description** | **Expected Date**  | 
+**Description** | **Status**  | 
 --- | --- |
-Architecture Design | Apr, 22| 
-Transaction Data Structure  | Apr, 23| 
-Generate public and private key | Apr, 24| 
-Encryption and Decryption| Apr, 25| 
-Signature and Signature Verification| Apr, 26| 
-Generate block  | Apr, 28| 
-Create HTML user interface | Apr, 30|
-Progress Report | May, 1| 
-Block being produced with detail description of event so blockchaincontains organizer ID and the Event detail as key value pair | May, 10| 
-Miner will publish event detail in the blockChain after POW| May, 10| 
-Peers will see the list of events| May, 11| 
-Miners receives transaction fee after any block generation | May, 12| 
-Update progress report | May, 13| 
-Optimize, debugging  | May, 10 - May, 11| 
-Test and Wrap up  | May, 12 - May, 13| 
-Progress Report and Demo Preparation | May, 14| 
+Architecture Design | DONE | 
+Transaction Data Structure  | DONE| 
+Generate public and private key | DONE| 
+Encryption and Decryption| DONE| 
+Signature and Signature Verification| DONE| 
+Generate block  | DONE| 
+Create HTML user interface | DONE|
+Progress Report | DONE| 
+Block being produced with detail description of event so blockchaincontains organizer ID and the Event detail as key value pair | DONE| 
+Miner will publish event detail in the blockChain after POW| DONE| 
+Peers will see the list of events| DONE| 
+Miners receives transaction fee after any block generation |DONE| 
+Update progress report | DONE| 
+Optimize, debugging  | DONE| 
+Test and Wrap up  | DONE| 
+Progress Report and Demo Preparation | DONE| 
 
