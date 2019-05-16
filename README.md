@@ -132,7 +132,7 @@ Progress Report | DONE|
 Block being produced with detail description of event so blockchaincontains organizer ID and the Event detail as key value pair | DONE| 
 Miner will publish event detail in the blockChain after POW| DONE| 
 Peers will see the list of events| DONE| 
-Miners receives transaction fee after any block generation |DONE| 
+Miners validate transaction|DONE| 
 Update progress report | DONE| 
 Optimize, debugging  | DONE| 
 Test and Wrap up  | DONE| 
