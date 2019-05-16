@@ -2,7 +2,7 @@ package data
 
 import (
 	"container/ring"
-	"encoding/hex"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -18,6 +18,7 @@ import (
 type PeerList struct {
 	selfId int32
 	peerMap map[string]int32
+	peerPublicKeyMap map[*rsa.PublicKey]int32
 	maxLength int32
 	mux sync.Mutex
 }
@@ -47,10 +48,14 @@ type PairList []Pair
 *
  */
 func NewPeerList(id int32, maxLength int32) PeerList {
-	peerList := PeerList{peerMap: make(map[string]int32), maxLength: maxLength}
+	peerList := PeerList{
+		peerMap: make(map[string]int32),
+		peerPublicKeyMap: make(map[*rsa.PublicKey]int32),
+		maxLength: maxLength}
 	peerList.Register(id)
 	return peerList
 }
+
 
 
 /* GetPeerMap()
@@ -69,6 +74,18 @@ func (peers *PeerList) GetPeerMap() map[string]int32{
 * To return the peerMap
 *
  */
+func (peers *PeerList) GetPublicKeyMap() map[*rsa.PublicKey]int32{
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	return peers.peerPublicKeyMap
+}
+
+
+/* GetMaxLength()
+*
+* To return the peerMap
+*
+ */
 func (peers *PeerList) GetMaxLength() int32{
 	return peers.maxLength
 }
@@ -81,6 +98,13 @@ func (peers *PeerList) GetMaxLength() int32{
 func(peers *PeerList) Add(addr string, id int32) {
 	peers.mux.Lock()
 	peers.peerMap[addr] = id
+	peers.mux.Unlock()
+}
+
+
+func(peers *PeerList) AddPublicKey(publicKey *rsa.PublicKey, id int32) {
+	peers.mux.Lock()
+	peers.peerPublicKeyMap[publicKey] = id
 	peers.mux.Unlock()
 }
 
@@ -210,12 +234,17 @@ func(peers *PeerList) Show() string {
 	peers.mux.Lock()
 	defer peers.mux.Unlock()
 	for addr, id := range peers.peerMap {
-		rs += fmt.Sprintf("addr = %s ", addr)
-		rs += fmt.Sprintf(", id = %d \n", id)
+		rs += fmt.Sprintf("addr= %s ", addr)
+		rs += fmt.Sprintf(", id= %d \n", id)
 	}
 	rs += "\n"
-	sum := []byte(rs)
-	rs = fmt.Sprintf("This is the PeerMap: %s\n", hex.EncodeToString(sum[:])) + rs
+	for publicKey, id := range peers.peerPublicKeyMap {
+		rs += fmt.Sprintf("public Key= %s ", publicKey)
+		rs += fmt.Sprintf(", id= %d \n", id)
+	}
+	rs += "\n"
+	//rs = fmt.Sprintf("This is the PeerMap: %s\n", hex.EncodeToString(sum[:])) + rs
+	rs = fmt.Sprintf("This is the PeerMap: \n") + rs
 	fmt.Print(rs)
 	return  rs
 }

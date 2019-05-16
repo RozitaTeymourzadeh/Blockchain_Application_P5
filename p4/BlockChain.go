@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/sha3"
 	"sort"
+	"strings"
 )
 
 
@@ -45,19 +46,16 @@ func (bc *BlockChain) Show() string {
  */
 func (blockChain *BlockChain) Canonical() string {
 	rs := ""
-
-	//forksBlocks, _ := blockChain.Get(height)
 	forksBlocks:= blockChain.GetLatestBlocks()
 	for i, currentBlock := range forksBlocks {
 		height := blockChain.Length
 		rs += "\n"
 		rs += fmt.Sprintf("Chain # %d:\n ", i)
-		//isAvail := true
 		for  height > 0{
-			rs += fmt.Sprintf("height=%d, timestamp=%d, hash=%s, parentHash=%s, size=%d\n",
+			rs += fmt.Sprintf("height=%d, timestamp=%d, hash=%s, parentHash=%s, size=%d , value=%s\n",
 				currentBlock.Header.Height, currentBlock.Header.Timestamp, currentBlock.Header.Hash,
-				currentBlock.Header.ParentHash, currentBlock.Header.Size)
-			currentBlock, _= blockChain.GetBlock(currentBlock.Header.Height-1, currentBlock.Header.ParentHash)
+				currentBlock.Header.ParentHash, currentBlock.Header.Size, currentBlock.Value)
+			currentBlock, _ = blockChain.GetBlock(currentBlock.Header.Height-1, currentBlock.Header.ParentHash)
 			height = height - 1
 		}
 	}
@@ -290,4 +288,30 @@ func (blockChain *BlockChain) MarshalJSON() ([]byte, error) {
 		blocks = append(blocks, v...)
 	}
 	return json.Marshal(blocks)
+}
+
+
+func (blockChain *BlockChain) GetEventInfornation(eventId string) string {
+	rs := ""
+	forksBlocks:= blockChain.GetLatestBlocks()
+	for i, currentBlock := range forksBlocks {
+		height := blockChain.Length
+		rs += "\n"
+		rs += fmt.Sprintf("Chain # %d:\n ", i+1)
+		for  height > 0{
+			for _, valueObject := range currentBlock.Value.db {
+				if strings.Contains(valueObject.String(), eventId) {
+					fmt.Println("TransactionObject:", valueObject.String())
+					rs += fmt.Sprintf("Value=%s\n", valueObject.String());
+				}else{
+					fmt.Println("eventId:", eventId," does not exist in our BlockChain!")
+				}
+			}
+			currentBlock, _= blockChain.GetBlock(currentBlock.Header.Height-1, currentBlock.Header.ParentHash)
+			height = height - 1
+		}
+	}
+	rs += "\n"
+	fmt.Println(rs)
+	return rs
 }

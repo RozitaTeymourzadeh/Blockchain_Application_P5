@@ -60,4 +60,16 @@ var routes = Routes{
 		"/postevent",
 		Event,
 	},
+	Route{
+		"GetEvent",
+		"GET",
+		"/getQueryEvent",
+		QueryEvent,
+	},
+	Route{
+		"PostEvent",
+		"POST",
+		"/postQueryEvent",
+		QueryEvent,
+	},
 }

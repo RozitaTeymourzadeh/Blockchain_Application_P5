@@ -2,145 +2,401 @@ package data
 
 import (
 	"crypto"
+	"crypto/md5"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"hash"
+	"io"
+	"log"
 	"os"
 )
 
-/* VerificationKeyJson Struct
-*
-* Verification Key data structure in Json format
-*
- */
-type VerificationKeyJson struct {
-	PublicKey   string   `json:"publickey"` //DataStructure
-	PrivateKey  string  `json:"privatekey"`
+///* VerificationKeyJson Struct
+//*
+//* Verification Key data structure in Json format
+//*
+// */
+//type VerificationKeyJson struct {
+//	PublicKey   string   `json:"publickey"` //DataStructure
+//	PrivateKey  string  `json:"privatekey"`
+//}
+//
+///* VerificationKey Struct
+//*
+//* Verification Key data structure
+//*
+// */
+//type VerificationKey struct {
+//	PublicKey   *rsa.PublicKey
+//	PrivateKey  *rsa.PrivateKey
+//}
+//
+//
+///* NewVerificationKeyJson()
+//*
+//* Return Verification data in Json format
+//*
+// */
+//func NewVerificationKeyJson(publicKey string, privateKey string) VerificationKeyJson {
+//	return VerificationKeyJson{
+//		PublicKey:  publicKey,
+//		PrivateKey: privateKey,
+//	}
+//}
+//
+//
+///* NewVerificationKey()
+//*
+//* Return Verification data
+//*
+// */
+//func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) VerificationKey {
+//	return VerificationKey{
+//		PublicKey:  publicKey,
+//		PrivateKey: privateKey,
+//	}
+//}
+//
+///* GenerateKeyString()
+//*
+//* To generate key in string format
+//*
+// */
+//func GenerateKeyString() (*rsa.PrivateKey,VerificationKeyJson){
+//
+//	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
+//	if err != nil {
+//		return privateKey,NewVerificationKeyJson("", "")
+//	}
+//
+//	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
+//	privateKeyBlock := pem.Block{
+//		Type:    "RSA PRIVATE KEY",
+//		Headers: nil,
+//		Bytes:   privateKeyDer,
+//	}
+//	privateKeyPem := string(pem.EncodeToMemory(&privateKeyBlock))
+//
+//	publicKey := privateKey.PublicKey
+//	publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
+//	if err != nil {
+//		return privateKey,NewVerificationKeyJson("", "")
+//	}
+//
+//	publicKeyBlock := pem.Block{
+//		Type:    "PUBLIC KEY",
+//		Headers: nil,
+//		Bytes:   publicKeyDer,
+//	}
+//	publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
+//
+//	//fmt.Println(privateKeyPem)
+//	//fmt.Println(publicKeyPem)
+//
+//	return privateKey,NewVerificationKeyJson(publicKeyPem, privateKeyPem)
+//}
+//
+///* GenerateKey()
+//*
+//* To generate key
+//*
+// */
+//func GenerateKeyFirst() VerificationKey{
+//	//publicKey := new(rsa.PublicKey)
+//	//privateKey := new(rsa.PrivateKey)
+//	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+//	if err != nil {
+//		fmt.Println(err.Error)
+//		os.Exit(1)
+//	}
+//	publicKey := &privateKey.PublicKey
+//	return NewVerificationKey(privateKey, publicKey)
+//}
+//
+//func GenerateKeyPair(bitSize int) (*rsa.PrivateKey) {
+//	reader := rand.Reader
+//	key, err := rsa.GenerateKey(reader, bitSize)
+//	checkError(err)
+//	return key
+//}
+//
+//
+//func checkError(err error) {
+//	if err != nil {
+//		fmt.Println("Fatal error ", err.Error())
+//		os.Exit(1)
+//	}
+//}
+//
+//func ExportRsaPublicKeyAsPemStr(pubkey *rsa.PublicKey) (string, error) {
+//	pubkey_bytes, err := x509.MarshalPKIXPublicKey(pubkey)
+//	if err != nil {
+//		return "", err
+//	}
+//	pubkey_pem := pem.EncodeToMemory(
+//		&pem.Block{
+//			Type:  "RSA PUBLIC KEY",
+//			Bytes: pubkey_bytes,
+//		},
+//	)
+//
+//	return string(pubkey_pem), nil
+//}
+//
+//
+//func ParseRsaPublicKeyFromPemStr(pubPEM string) (*rsa.PublicKey, error) {
+//	block, _ := pem.Decode([]byte(pubPEM))
+//	if block == nil {
+//		return nil, errors.New("failed to parse PEM block containing the key")
+//	}
+//
+//	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	switch pub := pub.(type) {
+//	case *rsa.PublicKey:
+//		return pub, nil
+//	default:
+//		break // fall through
+//	}
+//	return nil, errors.New("Key type is not RSA")
+//}
+///* EncodeToJson()
+//*
+//* To Encode HeartBeatData from json format
+//*
+// */
+//func (key *VerificationKey) EncodeToJson() (string, error) {
+//	jsonBytes, error := json.Marshal(key)
+//	return string(jsonBytes), error
+//}
+//
+///* DecodeFromJson()
+//*
+//* To Decode HeartBeatData from json format
+//*
+// */
+//func (key *VerificationKey) DecodeFromJson(jsonString string) error {
+//	return json.Unmarshal([]byte(jsonString), key)
+//}
+//
+///* Encrypt()
+//*
+//* To Encrypt message
+//*
+// */
+//func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
+//	message := []byte(messageJson)
+//	label := []byte("")
+//	hash := sha512.New()
+//	ciphertext, err := rsa.EncryptOAEP(
+//		hash,
+//		rand.Reader,
+//		pubLicKey,
+//		message,
+//		label,
+//	)
+//	if err != nil {
+//		fmt.Println(err)
+//		os.Exit(1)
+//	}
+//	//fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
+//	return ciphertext, hash, label, err
+//}
+//
+///* Decrypt()
+//*
+//* To Decrypt message
+//*
+// */
+//func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
+//
+//	plainText, err := rsa.DecryptOAEP(
+//		hash,
+//		rand.Reader,
+//		privateKey,
+//		ciphertext,
+//		label,
+//	)
+//	if err != nil {
+//		fmt.Println(err)
+//		os.Exit(1)
+//	}
+//	//fmt.Printf("OAEP decrypted [%x] to \n[%s]\n", ciphertext, plainText)
+//	plainTextJson := string(plainText) //TODO Check if it is in byte or string
+//	return plainTextJson, err
+//}
+//
+//
+///* Sign()
+//*
+//* To sign message
+//*
+// */
+//func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, []byte, crypto.Hash, error){
+//	//messageByte := []byte(message)
+//	var opts rsa.PSSOptions
+//	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
+//	PSSmessage := message
+//	newhash := crypto.SHA256
+//	pssh := newhash.New()
+//	pssh.Write(PSSmessage)
+//	hashed := pssh.Sum(nil)
+//	signature, err := rsa.SignPSS(
+//		rand.Reader,
+//		privateKey,
+//		newhash,
+//		hashed,
+//		&opts,
+//	)
+//	if err != nil {
+//		fmt.Println(err)
+//		os.Exit(1)
+//	}
+//	//fmt.Printf("PSS Signature : %x\n", signature)
+//	return signature, opts, hashed, newhash, err
+//}
+//
+///* Verify()
+//*
+//* To verify message
+//*
+// */
+//func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte, newhash crypto.Hash, signature []byte) (bool,error){
+//	isVerify := false
+//	err := rsa.VerifyPSS(
+//		publicKey,
+//		newhash,
+//		hashed,
+//		signature,
+//		&opts,
+//	)
+//	if err != nil {
+//		fmt.Println("Verify Signature failed!!!")
+//		isVerify = false
+//		os.Exit(1)
+//	} else {
+//		fmt.Println("Verify Signature successful...")
+//		isVerify = true
+//	}
+//	return isVerify, err
+//}
+
+
+func GenerateKeyPair(bitSize int) (*rsa.PrivateKey) {
+	reader := rand.Reader
+	key, err := rsa.GenerateKey(reader, bitSize)
+	checkError(err)
+	return key
 }
 
-/* VerificationKey Struct
-*
-* Verification Key data structure
-*
- */
-type VerificationKey struct {
-	PublicKey   *rsa.PublicKey
-	PrivateKey  *rsa.PrivateKey
-}
-
-
-/* NewVerificationKeyJson()
-*
-* Return Verification data in Json format
-*
- */
-func NewVerificationKeyJson(publicKey string, privateKey string) VerificationKeyJson {
-	return VerificationKeyJson{
-		PublicKey:  publicKey,
-		PrivateKey: privateKey,
-	}
-}
-
-
-/* NewVerificationKey()
-*
-* Return Verification data
-*
- */
-func NewVerificationKey(privateKey *rsa.PrivateKey,publicKey *rsa.PublicKey) VerificationKey {
-	return VerificationKey{
-		PublicKey:  publicKey,
-		PrivateKey: privateKey,
-	}
-}
-
-/* GenerateKeyString()
-*
-* To generate key in string format
-*
- */
-func GenerateKeyString() VerificationKeyJson{
-
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
+func checkError(err error) {
 	if err != nil {
-		return NewVerificationKeyJson("", "")
-	}
-
-	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
-	privateKeyBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privateKeyDer,
-	}
-	privateKeyPem := string(pem.EncodeToMemory(&privateKeyBlock))
-
-	publicKey := privateKey.PublicKey
-	publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
-	if err != nil {
-		return NewVerificationKeyJson("", "")
-	}
-
-	publicKeyBlock := pem.Block{
-		Type:    "PUBLIC KEY",
-		Headers: nil,
-		Bytes:   publicKeyDer,
-	}
-	publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
-
-	//fmt.Println(privateKeyPem)
-	//fmt.Println(publicKeyPem)
-
-	return NewVerificationKeyJson(publicKeyPem, privateKeyPem)
-}
-
-/* GenerateKey()
-*
-* To generate key
-*
- */
-func GenerateKey() VerificationKey{
-	//publicKey := new(rsa.PublicKey)
-	//privateKey := new(rsa.PrivateKey)
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		fmt.Println(err.Error)
+		fmt.Println("Fatal error ", err.Error())
 		os.Exit(1)
 	}
-	publicKey := &privateKey.PublicKey
-	return NewVerificationKey(privateKey, publicKey)
 }
 
+// PrivateKeyToBytes private key to bytes
+func PrivateKeyToBytes(priv *rsa.PrivateKey) []byte {
+	privBytes := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
 
-/* EncodeToJson()
-*
-* To Encode HeartBeatData from json format
-*
- */
-func (key *VerificationKey) EncodeToJson() (string, error) {
-	jsonBytes, error := json.Marshal(key)
-	return string(jsonBytes), error
+	return privBytes
 }
 
-/* DecodeFromJson()
-*
-* To Decode HeartBeatData from json format
-*
- */
-func (key *VerificationKey) DecodeFromJson(jsonString string) error {
-	return json.Unmarshal([]byte(jsonString), key)
+// PublicKeyToBytes public key to bytes
+func PublicKeyToBytes(pub *rsa.PublicKey) []byte {
+	pubASN1, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	pubBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: pubASN1,
+	})
+
+	return pubBytes
 }
 
-/* Encrypt()
-*
-* To Encrypt message
-*
- */
-func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
+// BytesToPrivateKey bytes to private key
+func BytesToPrivateKey(priv []byte) *rsa.PrivateKey {
+	block, _ := pem.Decode(priv)
+	enc := x509.IsEncryptedPEMBlock(block)
+	b := block.Bytes
+	var err error
+	if enc {
+		log.Println("is encrypted pem block")
+		b, err = x509.DecryptPEMBlock(block, nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	key, err := x509.ParsePKCS1PrivateKey(b)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return key
+}
+
+// BytesToPublicKey bytes to public key
+func BytesToPublicKey(pub []byte) *rsa.PublicKey {
+	block, _ := pem.Decode(pub)
+	enc := x509.IsEncryptedPEMBlock(block)
+	b := block.Bytes
+	var err error
+	if enc {
+		log.Println("is encrypted pem block")
+		b, err = x509.DecryptPEMBlock(block, nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	ifc, err := x509.ParsePKIXPublicKey(b)
+	if err != nil {
+		fmt.Println(err)
+	}
+	key, ok := ifc.(*rsa.PublicKey)
+	if !ok {
+		fmt.Println("Not Ok")
+	}
+	return key
+}
+
+// EncryptWithPublicKey encrypts data with public key
+func EncryptWithPublicKey(msg []byte, pub *rsa.PublicKey) []byte {
+	hash := sha512.New()
+	ciphertext, err := rsa.EncryptOAEP(hash, rand.Reader, pub, msg, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return ciphertext
+}
+
+// DecryptWithPrivateKey decrypts data with private key
+func DecryptWithPrivateKey(ciphertext []byte, priv *rsa.PrivateKey) []byte {
+	hash := sha512.New()
+	plaintext, err := rsa.DecryptOAEP(hash, rand.Reader, priv, ciphertext, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return plaintext
+}
+
+func EncryptPSS (messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, []byte, error){
 	message := []byte(messageJson)
 	label := []byte("")
 	hash := sha256.New()
@@ -155,16 +411,11 @@ func Encrypt(messageJson string, pubLicKey *rsa.PublicKey) ([]byte, hash.Hash, [
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	//fmt.Printf("OAEP encrypted [%s] to \n[%x]\n", string(message), ciphertext)
+
 	return ciphertext, hash, label, err
 }
 
-/* Decrypt()
-*
-* To Decrypt message
-*
- */
-func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
+func DecryptPSS (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.PrivateKey) (string, error){
 
 	plainText, err := rsa.DecryptOAEP(
 		hash,
@@ -182,13 +433,7 @@ func Decrypt (ciphertext []byte, hash hash.Hash, label []byte,privateKey *rsa.Pr
 	return plainTextJson, err
 }
 
-
-/* Sign()
-*
-* To sign message
-*
- */
-func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, []byte, crypto.Hash, error){
+func SignPSS (message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, []byte, crypto.Hash, error){
 	//messageByte := []byte(message)
 	var opts rsa.PSSOptions
 	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
@@ -208,16 +453,11 @@ func Sign(message []byte, privateKey *rsa.PrivateKey) ([]byte, rsa.PSSOptions, [
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	//fmt.Printf("PSS Signature : %x\n", signature)
+
 	return signature, opts, hashed, newhash, err
 }
 
-/* Verify()
-*
-* To verify message
-*
- */
-func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte, newhash crypto.Hash, signature []byte) (bool,error){
+func VerificationPSS (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte, newhash crypto.Hash, signature []byte) (bool,error){
 	isVerify := false
 	err := rsa.VerifyPSS(
 		publicKey,
@@ -235,4 +475,165 @@ func Verification (publicKey *rsa.PublicKey, opts rsa.PSSOptions, hashed []byte,
 		isVerify = true
 	}
 	return isVerify, err
+}
+
+func GenerateKeyString() (*rsa.PrivateKey,VerificationKeyJson){
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
+	if err != nil {
+		return privateKey,NewVerificationKeyJson("", "")
+	}
+
+	privateKeyDer := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateKeyBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privateKeyDer,
+	}
+	privateKeyPem := string(pem.EncodeToMemory(&privateKeyBlock))
+
+	publicKey := privateKey.PublicKey
+	publicKeyDer, err := x509.MarshalPKIXPublicKey(&publicKey)
+	if err != nil {
+		return privateKey,NewVerificationKeyJson("", "")
+	}
+
+	publicKeyBlock := pem.Block{
+		Type:    "PUBLIC KEY",
+		Headers: nil,
+		Bytes:   publicKeyDer,
+	}
+	publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
+
+	//fmt.Println(privateKeyPem)
+	//fmt.Println(publicKeyPem)
+
+	return privateKey,NewVerificationKeyJson(publicKeyPem, privateKeyPem)
+}
+
+type VerificationKeyJson struct {
+	PublicKey   string   `json:"publickey"` //DataStructure
+	PrivateKey  string  `json:"privatekey"`
+}
+
+func NewVerificationKeyJson(publicKey string, privateKey string) VerificationKeyJson {
+	return VerificationKeyJson{
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
+	}
+}
+
+func ExportRsaPrivateKeyAsPemStr(privkey *rsa.PrivateKey) string {
+	privkey_bytes := x509.MarshalPKCS1PrivateKey(privkey)
+	privkey_pem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privkey_bytes,
+		},
+	)
+	return string(privkey_pem)
+}
+
+func ParseRsaPrivateKeyFromPemStr(privPEM string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(privPEM))
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block containing the key")
+	}
+
+	priv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return priv, nil
+}
+
+func ExportRsaPublicKeyAsPemStr(pubkey *rsa.PublicKey) (string, error) {
+	pubkey_bytes, err := x509.MarshalPKIXPublicKey(pubkey)
+	if err != nil {
+		return "", err
+	}
+	pubkey_pem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PUBLIC KEY",
+			Bytes: pubkey_bytes,
+		},
+	)
+
+	return string(pubkey_pem), nil
+}
+
+func ParseRsaPublicKeyFromPemStr(pubPEM string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pubPEM))
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block containing the key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		return pub, nil
+	default:
+		break // fall through
+	}
+	return nil, errors.New("Key type is not RSA")
+}
+
+// EncryptPKCS1v15
+func EncryptPKCS (publickey *rsa.PublicKey, msg string) []byte{
+	msgByte := []byte(msg)
+	encryptedPKCS1v15, errPKCS1v15 := rsa.EncryptPKCS1v15(rand.Reader, publickey, msgByte)
+
+	if errPKCS1v15 != nil {
+		fmt.Println(errPKCS1v15)
+		os.Exit(1)
+	}
+
+	fmt.Printf("PKCS1v15 encrypted [%s] to \n[%x]\n", string(msg), encryptedPKCS1v15)
+	return encryptedPKCS1v15
+}
+
+func DecryptPKCS (privatekey *rsa.PrivateKey, encryptedPKCS1v15 []byte) []byte{
+	decryptedPKCS1v15, err := rsa.DecryptPKCS1v15(rand.Reader, privatekey, encryptedPKCS1v15)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("PKCS1v15 decrypted [%x] to \n[%s]\n", encryptedPKCS1v15, decryptedPKCS1v15)
+	fmt.Println()
+	return decryptedPKCS1v15
+}
+
+func SignPKCS (message string , privatekey *rsa.PrivateKey)(crypto.Hash,[]byte, []byte ){
+	var h crypto.Hash
+	messageByte := []byte(message)
+	hash := md5.New()
+	io.WriteString(hash, string(messageByte))
+	hashed := hash.Sum(nil)
+	signature, err := rsa.SignPKCS1v15(rand.Reader, privatekey, h, hashed)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Printf("PKCS1v15 Signature : %x\n", signature)
+	return h, hashed, signature
+}
+
+func VerifyPKCS (publickey *rsa.PublicKey, h crypto.Hash, hashed []byte, signature []byte) (bool, error){
+	verified := false
+	err := rsa.VerifyPKCS1v15(publickey, h, hashed, signature)
+
+	if err != nil {
+		fmt.Println("VerifyPKCS1v15 failed")
+		os.Exit(1)
+		verified = false
+	} else {
+		fmt.Println("VerifyPKCS1v15 successful")
+		verified = true
+	}
+	return verified, err
 }
