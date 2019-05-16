@@ -136,11 +136,11 @@ func (txp *TransactionPool) GetTransactionPoolMap() map[string]Transaction{
 	return txp.Pool
 }
 
-func (txp *TransactionPool) GetOneTxFromPool(TxPool TransactionPool) *Transaction{
+func (txp *TransactionPool) GetOneTxFromPool(TxPool TransactionPool, userBalance int) *Transaction{
 
 	if len(TxPool.GetTransactionPoolMap()) > 0 {
 		for _, transactionObject := range TxPool.GetTransactionPoolMap() {
-			if transactionObject.Balance >= transactionObject.TransactionFee {
+			if userBalance >= transactionObject.TransactionFee {
 				transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
 				//TODO check how to add
 				//fmt.Println("transactionObject.Balance:",transactionObject.Balance)

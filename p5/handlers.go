@@ -41,6 +41,8 @@ var newTransactionObject data.Transaction
 var TxPool data.TransactionPool
 //var mpt p4.MerklePatriciaTrie
 
+var userBalance int = 100
+//var transactionFee = 0
 
 var TransactionMap  map[string]data.Transaction
 //var userKey *rsa.PrivateKey
@@ -64,7 +66,7 @@ func init() {
 	mpt := p4.MerklePatriciaTrie{}
 	mpt.Initial()
 	mpt.Insert(p4.StringRandom(2),p4.StringRandom(5))
-	block:=p4.Block{}
+	block := p4.Block{}
 	block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	block.Header.Nonce = NONCE_ZERO
 	SBC.Insert(block)
@@ -541,12 +543,9 @@ func StartTryingNonce() {
 		STOP_GEN_BLOCK = false
 		var transactionJSON string
 		//Get Thread Safe 1 TX object from Pool.
-		transaction := TxPool.GetOneTxFromPool(TxPool)
-		if (transaction != nil) {
-
-			//Heart.Balance = Heart.Balance + transaction.TransactionFee
+		transaction := TxPool.GetOneTxFromPool(TxPool, userBalance)
+		if transaction != nil {
 			transactionJSON, _ = transaction.EncodeToJson()
-
 			//TODO: Check balance and the other things here later...
 			newMpt.Insert(transaction.EventId, transactionJSON)
 			//fmt.Println("POW..")
@@ -636,35 +635,38 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(eventDescription)
 		result := buf.String()
 		transactionFee:= data.TransactionFeeCalculation(result)
-		balance := 100
-		newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, transactionFee, balance)
-		fmt.Println("Transaction:", newTransactionObject)
-		transactionJSON,_ := newTransactionObject.EncodeToJson()
-		fmt.Println("Transaction JSON:",transactionJSON)
-		go TxPool.AddToTransactionPool(newTransactionObject);
-		//TransactionMap[eventId] = newTransactionObject
+		if userBalance - transactionFee >= 0 {
 
-		publicKeyMap := Peers.GetPublicKeyMap()
-		for publicKey, port := range publicKeyMap {
-			fmt.Printf("key[%s] value[%s]\n", publicKey, port)
+			userBalance = userBalance - transactionFee
+			newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, transactionFee, userBalance)
+			fmt.Println("Transaction:", newTransactionObject)
+			transactionJSON, _ := newTransactionObject.EncodeToJson()
+			fmt.Println("Transaction JSON:", transactionJSON)
 
-			encryptedPKCS1v15:= data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
-			fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15 )
-			encryptedPKCS1v15Str := string(encryptedPKCS1v15)
-			h, hashed, signature:= data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
-			fmt.Println("User Signature is:", signature)
-			fmt.Println("h is:", h)
-			fmt.Println("hashed is:", hashed)
+			go TxPool.AddToTransactionPool(newTransactionObject)
+			//TransactionMap[eventId] = newTransactionObject
+
+			publicKeyMap := Peers.GetPublicKeyMap()
+			for publicKey, port := range publicKeyMap {
+				fmt.Printf("key[%s] value[%s]\n", publicKey, port)
+
+				encryptedPKCS1v15 := data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
+				fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15)
+				encryptedPKCS1v15Str := string(encryptedPKCS1v15)
+				h, hashed, signature := data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
+				fmt.Println("User Signature is:", signature)
+				fmt.Println("h is:", h)
+				fmt.Println("hashed is:", hashed)
+			}
+			//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
+			//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
+
+			//isVerified, _ := p5.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
+			//fmt.Println("Is Verified is:", isVerified)
+
+		} else {
+			fmt.Fprintf(w, "User's has not got enough balance to add Transaction! Sorry!Balance = %d\n", userBalance)
 		}
-		TransactionMap[eventId] = newTransactionObject
-		//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
-		//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
-
-		//isVerified, _ := p5.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
-		//fmt.Println("Is Verified is:", isVerified)
-
-		fmt.Println("TransactionMap Size:",len(TransactionMap))
-
 	default:
 		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
 	}
