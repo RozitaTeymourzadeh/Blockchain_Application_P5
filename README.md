@@ -15,7 +15,7 @@ In case of any change in the event information, miners should publish the new bl
 -  Blocks will be produced with detail description of the event so Blockchain contains Organizer ID and the event detail as key value pair.  
 -  Miners will publish event detail in the blockchain after solving the hash puzzel.
 -  Miners will update their list of event transacrtion based on newly broadcasted event. 
--  Miners receive transaction fee for block generation.
+-  Miners validate transaction before publishing.
 
 ## Define Success
 
@@ -23,7 +23,7 @@ In case of any change in the event information, miners should publish the new bl
 -  Miners wrap the event information into the blockchain.
 -  Each block contains organizer ID, and Event information as key value pair.
 -  Peers can see and download event list anytime.
--  Miners receive block generation transaction fee.
+-  Miners validate transaction before publishing.
 
 ### Transaction:
 In this project transaction means the fee that each organizer should pay to publish their event information on the blockchain. Block publish fees are varies based of block data size. Transaction object is shown here:
