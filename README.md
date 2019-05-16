@@ -3,6 +3,9 @@
 ## Blockchain Application : Event Publisher 
 The idea was inspiered by [Eventbrite](https://www.eventbrite.com/)
 
+## YouTube Link : Event Publisher 
+
+[YouTube](https://youtu.be/hE903bYjags)
 ## Description 
 
 The project concentrates on implementing the Blockchain to publish event information (decentralized property) and using Blockchain to publish upcoming event and keep the history of the events (immutable property) of the Blockchain. Miners will publish the event info after solving hash puzzel into the blockchain to be visible to the peers. 
