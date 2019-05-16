@@ -47,6 +47,8 @@ var userBalance int = 100
 var TransactionMap  map[string]data.Transaction
 //var userKey *rsa.PrivateKey
 var minerKey *rsa.PrivateKey
+var Verified  bool = true
+var enoughBalance bool = true
 
 /* init()
 *
@@ -546,7 +548,12 @@ func StartTryingNonce() {
 		transaction := TxPool.GetOneTxFromPool(TxPool, userBalance)
 		if transaction != nil {
 			transactionJSON, _ = transaction.EncodeToJson()
-			//TODO: Check balance and the other things here later...
+
+			//if Verified && enoughBalance {
+			//	//fmt.Println("Signature verified: ", Verified)
+			//	//fmt.Println("User has enough money: ", enoughBalance)
+			//
+			//}
 			newMpt.Insert(transaction.EventId, transactionJSON)
 			//fmt.Println("POW..")
 			validateNonce := p4.StringRandom(16)
@@ -561,7 +568,7 @@ func StartTryingNonce() {
 				peerMapJson, _ := Peers.PeerMapToJson()
 				transactionJSON, _ = transaction.EncodeToJson()
 				//newMpt.Insert(tempTransactionObject.TransactionId,"apple")
-				fmt.Println("test.mpt:", newMpt);
+				fmt.Println("test.mpt:", newMpt)
 
 				heartBeatData := data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapJson, SELF_ADDR, true, validateNonce,
 					newMpt, &minerKey.PublicKey, isValidTransaction, transactionJSON)
@@ -583,21 +590,16 @@ func StartTryingNonce() {
 
 				fmt.Println("startTryingNonce.TransactionJSON:",heartBeatData.TransactionInfoJson)
 				ForwardHeartBeat(heartBeatData)
-				isValidTransaction = false //TODO:NOT USING FOR NOW!! CRITICAL!!!!!
-				fmt.Println("******** Miner solved the Puzzle and took the TX from Transaction Map!")
-				fmt.Println("******** Before.TransactionMap.Size:", len(TxPool.GetTransactionPoolMap()))
-				//delete(TransactionMap, tempTransactionObject.TransactionId);
+				isValidTransaction = false
 				TxPool.DeleteFromTransactionPool(transaction.EventId)
-				fmt.Println("******** After.TransactionMap.Size:", len(TxPool.GetTransactionPoolMap()))
 				if STOP_GEN_BLOCK {
-					fmt.Println("Stop generating node!")
+					fmt.Println("Stop Generating Block.")
 					goto GetLatestBlock
 				}
 			}
-		}else{//if transaction is NOT NULL....
-			//fmt.Println("No Transaction in TxPool.")
+		}else{
 		}
-	}//for forever
+	}
 }
 
 func Event(w http.ResponseWriter, r *http.Request) {
@@ -620,13 +622,19 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "HTTP Post = %v\n", r.PostForm)
 		//eventId := r.FormValue("eventId")
 		eventName := r.FormValue("eventName")
-		eventDate := r.FormValue("eventDate")
+		//eventDate := r.FormValue("eventDate")
 		eventDescription := r.FormValue("eventDescription")
 		//fmt.Fprintf(w, "Event ID: %s\n", eventId)
 		fmt.Fprintf(w, "Event Name: %s\n", eventName)
-		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
+		//fmt.Fprintf(w, "Event Date: %d\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
-
+		//encryptedPKCS1v15 := data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
+		//fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15)
+		//encryptedPKCS1v15Str := string(encryptedPKCS1v15)
+		//h, hashed, signature := data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
+		//fmt.Println("User Signature is:", signature)
+		//fmt.Println("h is:", h)
+		//fmt.Println("hashed is:", hashed)
 		eventId := p4.StringRandom(16)
 		newTimestamp := time.Now().Unix()
 		buf := bytes.Buffer{}
@@ -638,31 +646,15 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		if userBalance - transactionFee >= 0 {
 
 			userBalance = userBalance - transactionFee
-			newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, transactionFee, userBalance)
+			minershortKey:= rsa.PublicKey{}
+			newTransactionObject := data.NewTransaction(eventId, &minershortKey, eventName, newTimestamp, eventDescription, transactionFee, userBalance)
 			fmt.Println("Transaction:", newTransactionObject)
 			transactionJSON, _ := newTransactionObject.EncodeToJson()
 			fmt.Println("Transaction JSON:", transactionJSON)
 
+
+
 			go TxPool.AddToTransactionPool(newTransactionObject)
-			//TransactionMap[eventId] = newTransactionObject
-
-			publicKeyMap := Peers.GetPublicKeyMap()
-			for publicKey, port := range publicKeyMap {
-				fmt.Printf("key[%s] value[%s]\n", publicKey, port)
-
-				encryptedPKCS1v15 := data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
-				fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15)
-				encryptedPKCS1v15Str := string(encryptedPKCS1v15)
-				h, hashed, signature := data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
-				fmt.Println("User Signature is:", signature)
-				fmt.Println("h is:", h)
-				fmt.Println("hashed is:", hashed)
-			}
-			//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
-			//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
-
-			//isVerified, _ := p5.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
-			//fmt.Println("Is Verified is:", isVerified)
 
 		} else {
 			fmt.Fprintf(w, "User's has not got enough balance to add Transaction! Sorry!Balance = %d\n", userBalance)
@@ -672,6 +664,39 @@ func Event(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
+func QueryEvent(w http.ResponseWriter, r *http.Request) {
+	log.Println("Event method is triggered!")
+
+	switch r.Method {
+	case "GET":
+		log.Println("GET Event triggered!")
+
+		dir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("PWD:",dir)
+
+		http.ServeFile(w, r, "QueryEvent.html")
+	case "POST":
+		log.Println("POST Event triggered!")
+
+
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+
+		//fmt.Fprintf(w, "HTTP Post sent to Server! PostForm = %v\n", r.PostForm)
+		eventId := r.FormValue("eventId")
+		fmt.Fprintf(w, "Event ID = %s\n", eventId)
+		fmt.Fprintf(w, "SEARCH RESULT = %s\n", SBC.GetEventInfornation(eventId))
+
+	default:
+		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
+	}
+}
 
 
 

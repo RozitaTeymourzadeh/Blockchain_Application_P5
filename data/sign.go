@@ -295,7 +295,7 @@ func GenerateKeyPair(bitSize int) (*rsa.PrivateKey) {
 	reader := rand.Reader
 	key, err := rsa.GenerateKey(reader, bitSize)
 	checkError(err)
-	return key;
+	return key
 }
 
 func checkError(err error) {

@@ -1,7 +1,11 @@
 	package main
 
 	import (
+		"MerklePatriciaTree/p5/Blockchain_Application_P5/data"
 		"MerklePatriciaTree/p5/Blockchain_Application_P5/p5"
+		"crypto/rand"
+		"crypto/rsa"
+		"fmt"
 		"log"
 		"net/http"
 		"os"
@@ -31,6 +35,41 @@
 		//isVerified, _ := data.Verification (RozitaKey.PublicKey, opts, hashed, newhash, signature)
 		//fmt.Println("Is Verified is:", isVerified)
 
+		// generate private key
+		privatekey, err := rsa.GenerateKey(rand.Reader, 1024)
+
+		if err != nil {
+			fmt.Println(err.Error)
+			os.Exit(1)
+		}
+
+		privatekey.Precompute()
+		err = privatekey.Validate()
+		if err != nil {
+			fmt.Println(err.Error)
+			os.Exit(1)
+		}
+
+		var publickey *rsa.PublicKey
+		publickey = &privatekey.PublicKey
+
+		msg := "The secret message!"
+
+		// EncryptPKCS1v15
+		encryptedPKCS1v15 := data.EncryptPKCS(publickey, msg)
+
+		// DecryptPKCS1v15
+		decryptedPKCS1v15 := data.DecryptPKCS(privatekey , encryptedPKCS1v15)
+		fmt.Printf("PKCS1v15 decrypted [%x] to \n[%s]\n", encryptedPKCS1v15, decryptedPKCS1v15)
+		// SignPKCS1v15
+		message := "message to be signed"
+		h, hashed, signature := data.SignPKCS(message , privatekey)
+		fmt.Printf("PKCS1v15 Signature : %x\n", signature)
+		//VerifyPKCS1v15
+		verified, err := data.VerifyPKCS(publickey, h, hashed, signature)
+		fmt.Println("Signature verified: ", verified)
+
+
 
 		router := p5.NewRouter()
 		if len(os.Args) > 1 {
@@ -40,4 +79,8 @@
 		}
 
 
+
+
+
 	}
+

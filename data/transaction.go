@@ -30,7 +30,6 @@ type TransactionJson struct {
 *
  */
 type Transaction struct {
-	//*rsa.PublicKey
 	PublicKey   		*rsa.PublicKey
 	EventId     		string
 	EventName     		string
@@ -52,9 +51,9 @@ type TransactionPool struct {
 *
  */
 //publicKey string
-func NewTransactionJson(eventId string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
+func NewTransactionJson(eventId string, publicKey string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
 	return TransactionJson{
-		//PublicKey :  publicKey,
+		PublicKey :  publicKey,
 		EventId: eventId,
 		EventName: eventName,
 		Timestamp: timestamp,
@@ -70,11 +69,10 @@ func NewTransactionJson(eventId string, eventName string, timestamp string, even
 *
  */
 //publicKey *rsa.PublicKey
-func NewTransaction( eventId string, eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
+func NewTransaction(eventId string, publicKey *rsa.PublicKey,eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
 	return Transaction{
-
-		//PublicKey:  publicKey,
 		EventId: eventId,
+		PublicKey:  publicKey,
 		EventName: eventName,
 		Timestamp: timestamp,
 		EventDescription: eventDescription,
