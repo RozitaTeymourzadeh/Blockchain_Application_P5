@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,7 @@ var NONCE_ZERO ="00000"
 
 
 var newTransactionObject data.Transaction
+var TxPool data.TransactionPool
 //var mpt p4.MerklePatriciaTrie
 
 
@@ -52,6 +54,7 @@ var minerKey *rsa.PrivateKey
 func init() {
 
 	fmt.Println("......Initialization ....")
+	TxPool = data.NewTransactionPool()
 	SBC = data.NewBlockChain()
 	Peers = data.NewPeerList(Peers.GetSelfId(),32)
 	ifStarted = false
@@ -65,7 +68,6 @@ func init() {
 	block.Initial(1,"gensis",mpt,NONCE_ZERO)
 	block.Header.Nonce = NONCE_ZERO
 	SBC.Insert(block)
-
 	if len(os.Args) > 1 {
 		responseString := string(os.Args[1])
 		fmt.Println(responseString)
@@ -279,81 +281,122 @@ func UploadBlock(w http.ResponseWriter, r *http.Request) {
 *
 */
 func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
+	var mutex = sync.Mutex{}
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	transaction := data.Transaction{}
+
 	defer r.Body.Close()
 	data, _ := ioutil.ReadAll(r.Body)
-	fmt.Println("<--- HeartBeat Received  From:[", r.Host ,"] <---")
+	fmt.Println("<---- HeartBeat Received  From:[", r.Host, "] <<<<<<<<<<<<")
 	fmt.Fprintf(w, "%s\n", r.Host)
 	fmt.Fprintf(w, "%s", string(data))
-	err := json.Unmarshal(data, &Heart)
-	if err != nil {
-		fmt.Println("FATAL:  Faulty HeartBeatReceive: ", err)
+	error := json.Unmarshal(data, &Heart)
+	if (error != nil) {
+		fmt.Println("Error occured in HeartBeatReceive: ", error)
 	} else {
 
 	}
-	if Heart.Addr ==  SELF_ADDR {
+	//fmt.Println("HeartBeatVariable.Addr", HeartBeatVariable.Addr)
+	//fmt.Println("SELF_ADDR", SELF_ADDR)
+	if (Heart.Addr == SELF_ADDR) {
 		return
 	}
-	Peers.AddPublicKey(Heart.PeerPublicKey,Heart.Id)
+
+	transaction.DecodeFromJson(Heart.TransactionInfoJson)
+
+	Peers.AddPublicKey(Heart.PeerPublicKey, Heart.Id)
 	Peers.Add(Heart.Addr, Heart.Id)
-	Peers.InjectPeerMapJson(Heart.PeerMapJson,  SELF_ADDR)
-	//&& Heart.IfValidTransaction
-	if Heart.IfNewBlock {
+	Peers.InjectPeerMapJson(Heart.PeerMapJson, SELF_ADDR)
+	//if (HeartBeatVariable.IfNewBlock && HeartBeatVariable.IfValidTransaction) {
+	if (Heart.IfNewBlock) {
+		fmt.Println("HeartBeat flag is true!!")
+
 		heartBlock := p4.Block{}
 		heartBlock.DecodeFromJSON(Heart.BlockJson)
-
-
-		// pow
+		fmt.Println("Received block! Root:",heartBlock.Value.GetRoot())
 		receivedPuzzle := heartBlock.Header.ParentHash + heartBlock.Header.Nonce + heartBlock.Value.GetRoot()
 		sum := sha3.Sum256([]byte(receivedPuzzle))
 
-		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO){
-			fmt.Println("Block with NONCE arrived from:[", r.Host ,"]")
+		//I can not come to this point when TX is not NULL!!
+		if (strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO)) {
+			fmt.Println("Block with SPECIAL PREFIX arrived from:[", r.Host, "]")
 			latestBlocks := SBC.GetLatestBlocks()
-			for i:= 0 ; i < len(latestBlocks); i++ {
+			for i := 0; i < len(latestBlocks); i++ {
 				if latestBlocks[i].Header.Hash == heartBlock.Header.ParentHash {
-					STOP_GEN_BLOCK =true
+					STOP_GEN_BLOCK = true
 					break
 				}
 			}
 			if (heartBlock.Header.Height == 1) {
-				if Heart.Balance == 0 {
-
-				}else{
+				//TODO: BUG_FIX Check TX if it is inserted before!
+				//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
+				if (TxPool.CheckConfirmedPool(transaction) == false) {
 					SBC.Insert(heartBlock)
+					TxPool.DeleteFromTransactionPool(transaction.EventId)
+
+					fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
+
+					TxPool.AddToConfirmedPool(transaction)
+				} else {
+					fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
+					TxPool.DeleteFromTransactionPool(transaction.EventId)
 				}
 			} else {
 				_, flag := SBC.GetBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
 				if flag {
-					fmt.Println("No.Gap.Inserting Heart Beat Block:",heartBlock)
-					fmt.Println("No.Gap.SBC:",SBC)
-					if Heart.Balance == 0 {
-					}else {
+					fmt.Println("No.Gap.Inserting Heart Beat Block:", heartBlock)
+					//TODO: BUG_FIX Check TX if it is inserted before!
+					//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
+					//if (TxPool.CheckConfirmedPool(transaction) == false&&HeartBeatVariable.Balance!=0) {
+					if (TxPool.CheckConfirmedPool(transaction) == false) {
 						SBC.Insert(heartBlock)
+						fmt.Println("No.Gap.New.SBC:", SBC)
+						TxPool.DeleteFromTransactionPool(transaction.EventId)
+						fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
+						TxPool.AddToConfirmedPool(transaction)
+					} else {
+						fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
+						TxPool.DeleteFromTransactionPool(transaction.EventId)
 					}
 				} else {
-					fmt.Println("Gap.Inserting Heart Beat Block:",heartBlock)
-					fmt.Println("Gap.SBC:",SBC)
+					fmt.Println("Gap.Inserting Heart Beat Block:", heartBlock)
 					AskForBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
-					if Heart.Balance == 0 {
-					}else{
+					//TODO: BUG_FIX Check TX if it is inserted before!
+					//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
+					if (TxPool.CheckConfirmedPool(transaction) == false) {
 						SBC.Insert(heartBlock)
+						fmt.Println("Gap.New.SBC:", SBC)
+						TxPool.DeleteFromTransactionPool(transaction.EventId)
+						fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
+						TxPool.AddToConfirmedPool(transaction)
+					} else {
+						fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
+						TxPool.DeleteFromTransactionPool(transaction.EventId)
 					}
 				}
 			}
-		}else{
-			fmt.Println(" Heart Beat Block does not contain block! unmatch Nonce:", heartBlock.Header.Nonce)
+
+
+		} else {
+			fmt.Println(" Ignoring incoming Heart Beat Block! Unmatched Puzzle! Calculated Puzzle:", hex.EncodeToString(sum[:]))
+			fmt.Println("TEST.ALPER.RECEIVE********************************************************")
+			fmt.Println("Incoming Heart Beat Block.Hash::", heartBlock.Header.Hash)
+			fmt.Println("Incoming Heart Beat Nonce:", heartBlock.Header.Nonce)
+			fmt.Println("Incoming Heart Beat mpt.Root:", heartBlock.Value.GetRoot())
+			fmt.Println("Calculated Incoming Hash Puzzle:", hex.EncodeToString(sum[:]))
 		}
 	} else {
 		fmt.Println("HeartBeat flag is false! There is no block in heartBeat!")
 	}
-	Heart.Hops -=  1
+	Heart.Hops -= 1
 	if Heart.Hops > 0 {
 		Heart.Addr = SELF_ADDR
 		Heart.Id = Peers.GetSelfId()
 		ForwardHeartBeat(Heart)
 	}
 }
-
 
 /* AskForBlock
 *
@@ -433,101 +476,134 @@ func ForwardHeartBeat(heartBeatData data.HeartBeatData) {
 *
 */
 func StartHeartBeat() {
+	fmt.Println("Start Heart Beat!")
+	//data.NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string)
 	Peers.Rebalance()
+	//data.PrepareHeartBeatData()
+	//Iterate over peer List and send Post request
 	PeerMap := Peers.GetPeerMap()
-
+	fmt.Println("Size of PeerMap:",len(PeerMap))
+	//key is address
+	//value is id
+	// Send heart beat to every node !
 	for key, value := range PeerMap {
 		fmt.Printf("key[%s] value[%d]\n", key, value)
-		uploadAddress := "http://" + key + "/heartbeat/receive"
+		uploadAddress := "http://" + key + "/heartbeat/receive";
+		fmt.Println("/heartbeat/receive Request will be sent to :" + uploadAddress)
 		//destination := "http://localhost:6688" +/heartbeat/receive"
 		peerMapToJson, err := Peers.PeerMapToJson()
 		if err != nil {
 			log.Fatal(err)
 		}
-		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"", p4.MerklePatriciaTrie{} ,&minerKey.PublicKey,false,"",0)
+
+		mpt:=p4.MerklePatriciaTrie{};
+		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"",mpt ,&minerKey.PublicKey,false,"")
+
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, err := client.Do(req)
-		fmt.Println("---> HeartBeatSent --->")
+		fmt.Println(">>>>>>>>>>>> HeartBeatSent To:[",key,"]>>>>>>>>>>>>>")
 		if err != nil {
-			fmt.Println("FATAL: [",key,"] is deleted from Peer List")
+			//panic(err)
+			fmt.Println("Problem in peer[",key,"] Deleting peer from Peer List");
 			Peers.Delete(key)
 			return
 		}
 		defer resp.Body.Close()
+		fmt.Println("response Status:", resp.Status)
+		fmt.Println("response Headers:", resp.Header)
 		body, _ := ioutil.ReadAll(resp.Body)
 		fmt.Println("response Body:", string(body))
 	}
 }
+
 
 /* StartTryingNonce()
 *
 * Generate block after solving hash puzzel
 *
 */
-func StartTryingNonce(){
-	mpt:=p4.MerklePatriciaTrie{}
-	mpt.Initial()
-	//mpt.Insert("a","apple")
-	//block:=p2.Block{}
-	//block.Initial(1,"gensis",mpt,NONCE_ZERO)
-	//block.Header.Nonce = NONCE_ZERO
-	//SBC.Insert(block)
+func StartTryingNonce() {
+	var mutex = sync.Mutex{}
+	mutex.Lock()
+	defer mutex.Unlock()
 	isValidTransaction := false
+	//forever...
+	//	newMpt.Insert(p2.String(2),p2.String(5))
 	for {
 	GetLatestBlock:
+		newMpt := p4.MerklePatriciaTrie{}
+		newMpt.Initial()
 		blocks := SBC.GetLatestBlocks()
-		STOP_GEN_BLOCK  = false
+		STOP_GEN_BLOCK = false
 		var transactionJSON string
-		var tempTransactionObject data.Transaction
-		if len(TransactionMap) != 0 {
-			for eventId, transactionObject := range TransactionMap {
-				if transactionObject.Balance >= transactionObject.TransactionFee {
-					//TODO: Add Signature
-					isValidTransaction = true
-					transactionObject.Balance = transactionObject.Balance - transactionObject.TransactionFee
-					//TODO check how to add
-					Heart.Balance = Heart.Balance + transactionObject.TransactionFee
-					transactionJSON, _ = transactionObject.EncodeToJson()
-					tempTransactionObject = transactionObject
-					goto POW
-				} else {
-					delete(TransactionMap, eventId)
-					fmt.Println("Transaction  Peer:", Peers.GetSelfId(),
-						" is failed. Balance =", transactionObject.Balance)
+		//Get Thread Safe 1 TX object from Pool.
+		transaction := TxPool.GetOneTxFromPool(TxPool)
+		if (transaction != nil) {
+
+			//Heart.Balance = Heart.Balance + transaction.TransactionFee
+			transactionJSON, _ = transaction.EncodeToJson()
+
+			//TODO: Check balance and the other things here later...
+			newMpt.Insert(transaction.EventId, transactionJSON)
+			//fmt.Println("POW..")
+			validateNonce := p4.StringRandom(16)
+			hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(newMpt.GetRoot())
+			sum := sha3.Sum256([]byte(hashPuzzle))
+
+			//fmt.Printf("Found one TX.Plate:%s - Nonce:%s",transaction.Plate,hex.EncodeToString(sum[:5]))
+			if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO) {
+				fmt.Println("***********************************************************************************")
+				fmt.Println("*** HashPuzzle solved:", time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
+				fmt.Println("***********************************************************************************")
+				peerMapJson, _ := Peers.PeerMapToJson()
+				transactionJSON, _ = transaction.EncodeToJson()
+				//newMpt.Insert(tempTransactionObject.TransactionId,"apple")
+				fmt.Println("test.mpt:", newMpt);
+
+				heartBeatData := data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapJson, SELF_ADDR, true, validateNonce,
+					newMpt, &minerKey.PublicKey, isValidTransaction, transactionJSON)
+
+				heartBlock := p4.Block{}
+				heartBlock.DecodeFromJSON(heartBeatData.BlockJson)
+
+				fmt.Println("heartBlock.Root:",string(heartBlock.Value.GetRoot()))
+
+				testPuzzle:=string(heartBlock.Header.ParentHash) + string(heartBlock.Header.Nonce) + string(heartBlock.Value.GetRoot())
+				sum = sha3.Sum256([]byte(testPuzzle))
+				fmt.Println("testPuzzle:",	hex.EncodeToString(sum[:]))
+
+				if(heartBeatData.IfNewBlock){
+					fmt.Println("Yes.Send new block")
+				}else{
+					fmt.Println("Wierd thing happened!")
+				}
+
+				fmt.Println("startTryingNonce.TransactionJSON:",heartBeatData.TransactionInfoJson)
+				ForwardHeartBeat(heartBeatData)
+				isValidTransaction = false //TODO:NOT USING FOR NOW!! CRITICAL!!!!!
+				fmt.Println("******** Miner solved the Puzzle and took the TX from Transaction Map!")
+				fmt.Println("******** Before.TransactionMap.Size:", len(TxPool.GetTransactionPoolMap()))
+				//delete(TransactionMap, tempTransactionObject.TransactionId);
+				TxPool.DeleteFromTransactionPool(transaction.EventId)
+				fmt.Println("******** After.TransactionMap.Size:", len(TxPool.GetTransactionPoolMap()))
+				if STOP_GEN_BLOCK {
+					fmt.Println("Stop generating node!")
+					goto GetLatestBlock
 				}
 			}
+		}else{//if transaction is NOT NULL....
+			//fmt.Println("No Transaction in TxPool.")
 		}
-	POW:
-		validateNonce := p4.StringRandom(16)
-		hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(mpt.GetRoot())
-		sum := sha3.Sum256([]byte(hashPuzzle))
-
-		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO) {
-			fmt.Println("HashPuzzle solved:",time.Now().Unix(), ", hashPuzzel:", hex.EncodeToString(sum[:]))
-			peerMapJson,_ := Peers.PeerMapToJson()
-			transactionJSON,_= tempTransactionObject.EncodeToJson()
-			mpt.Insert(tempTransactionObject.EventId,transactionJSON)
-
-			heartBeatData :=data.PrepareHeartBeatData(&SBC,Peers.GetSelfId(),peerMapJson,SELF_ADDR, true , validateNonce, mpt,&minerKey.PublicKey, isValidTransaction,transactionJSON, Heart.Balance)
-			ForwardHeartBeat(heartBeatData)
-			//isValidTransaction=false
-			//mpt.Initial()
-			//delete(TransactionMap, tempTransactionObject.EventId)
-			if STOP_GEN_BLOCK  {
-				fmt.Println("Stop generating node!")
-				goto GetLatestBlock
-			}
-		}
-	}
+	}//for forever
 }
 
 func Event(w http.ResponseWriter, r *http.Request) {
 
-	log.Println("Event method is triggered")
+	log.Println(".....Event method .....")
 
 	switch r.Method {
 	case "GET":
@@ -543,45 +619,44 @@ func Event(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprintf(w, "HTTP Post = %v\n", r.PostForm)
-		eventId := r.FormValue("eventId")
+		//eventId := r.FormValue("eventId")
 		eventName := r.FormValue("eventName")
 		eventDate := r.FormValue("eventDate")
 		eventDescription := r.FormValue("eventDescription")
-		fmt.Fprintf(w, "Event ID: %s\n", eventId)
+		//fmt.Fprintf(w, "Event ID: %s\n", eventId)
 		fmt.Fprintf(w, "Event Name: %s\n", eventName)
 		fmt.Fprintf(w, "Event Date: %s\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
 
+		eventId := p4.StringRandom(16)
 		newTimestamp := time.Now().Unix()
-
-		//TODO calculate transaction fee
-		//transactionFee:= data.TransactionFeeCalculation()
-		newTransactionFee := 5
-		newBalance := 100
-		newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, newTransactionFee, newBalance)
+		buf := bytes.Buffer{}
+		buf.WriteString(eventId)
+		buf.WriteString(eventName)
+		buf.WriteString(eventDescription)
+		result := buf.String()
+		transactionFee:= data.TransactionFeeCalculation(result)
+		balance := 100
+		newTransactionObject := data.NewTransaction(eventId, eventName, newTimestamp, eventDescription, transactionFee, balance)
 		fmt.Println("Transaction:", newTransactionObject)
 		transactionJSON,_ := newTransactionObject.EncodeToJson()
 		fmt.Println("Transaction JSON:",transactionJSON)
+		go TxPool.AddToTransactionPool(newTransactionObject);
+		//TransactionMap[eventId] = newTransactionObject
+
+		publicKeyMap := Peers.GetPublicKeyMap()
+		for publicKey, port := range publicKeyMap {
+			fmt.Printf("key[%s] value[%s]\n", publicKey, port)
+
+			encryptedPKCS1v15:= data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
+			fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15 )
+			encryptedPKCS1v15Str := string(encryptedPKCS1v15)
+			h, hashed, signature:= data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
+			fmt.Println("User Signature is:", signature)
+			fmt.Println("h is:", h)
+			fmt.Println("hashed is:", hashed)
+		}
 		TransactionMap[eventId] = newTransactionObject
-
-		//Alper PeerMap or PublicKeyMap
-		//publicKeyMap := Peers.GetPublicKeyMap()
-		//for publicKey, port := range publicKeyMap {
-		//	fmt.Printf("key[%s] value[%s]\n", publicKey, port)
-		//
-		//	cipherTextToMiner, hash, label, _:= data.Encrypt(transactionJSON,&minerKey.PublicKey)
-		//
-		//	fmt.Println("cipherTextToMiner is:", cipherTextToMiner )
-		//	fmt.Println("hash is:", hash )
-		//	fmt.Println("label is:", label )
-		//
-		//	signature, opts, hashed, newhash, _:= data.Sign(cipherTextToMiner, minerKey) //Private Key
-		//	fmt.Println("User Signature is:", signature)
-		//	fmt.Println("opts is:", opts)
-		//	fmt.Println("hashed is:", hashed)
-		//	fmt.Println("newhash is:", newhash)
-		//}
-
 		//plainTextfromRozita, _ := p5.Decrypt(cipherTextToMiner, hash , label ,minerKey.PrivateKey)
 		//fmt.Println("plainTextfrom Rozita is:", plainTextfromRozita)
 
@@ -594,4 +669,10 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "FATAL: Wrong HTTP Request!")
 	}
 }
+
+
+
+
+
+
 
