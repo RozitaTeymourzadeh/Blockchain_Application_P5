@@ -4,6 +4,7 @@ import (
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"crypto/rsa"
 	"encoding/json"
+
 	//"fmt"
 )
 
@@ -22,7 +23,6 @@ type HeartBeatData struct {
 	PeerPublicKey 		*rsa.PublicKey `json:"peerPublicKey"`
 	IfValidTransaction 	bool			`json:"ifValidTransaction"`
 	TransactionInfoJson string			`json:"transactionInfoJson"`
-	Balance				int				`json:"balance"`
 }
 
 
@@ -31,7 +31,7 @@ type HeartBeatData struct {
 * NewHeartBeatData() is a normal initial function which creates an instance
 *
  */
-func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string, peerPublicKey *rsa.PublicKey, ifValidTransaction bool, transactionInfoJson string, balance int) HeartBeatData {
+func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string, peerPublicKey *rsa.PublicKey, ifValidTransaction bool, transactionInfoJson string) HeartBeatData {
 	return HeartBeatData{
 		IfNewBlock:  ifNewBlock,
 		Id:          id,
@@ -42,7 +42,6 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 		PeerPublicKey: peerPublicKey,
 		IfValidTransaction: ifValidTransaction,
 		TransactionInfoJson: transactionInfoJson,
-		Balance: balance,
 	}
 }
 
@@ -53,16 +52,14 @@ func NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson s
 * whether or not you will create a new block and send the new block to other peers.
 *
  */
-func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie,peerPublicKey *rsa.PublicKey, ifValidTransaction bool, transactionInfoJson string, balance int) HeartBeatData {
-	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,ifValidTransaction, transactionInfoJson, balance)
-
-	// && ifValidTransaction
-	if generateNewBlock {
+func PrepareHeartBeatData(sbc *SyncBlockChain, selfId int32, peerMapJson string, addr string, generateNewBlock bool,nonce string , mpt p4.MerklePatriciaTrie,peerPublicKey *rsa.PublicKey, ifValidTransaction bool, transactionInfoJson string) HeartBeatData {
+	newHeartBeatData := NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,ifValidTransaction ,transactionInfoJson)
+	if generateNewBlock  {
 		newBlock := sbc.GenBlock(mpt, nonce)
 		blockJson, _ := newBlock.EncodeToJSON()
-		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey,true ,transactionInfoJson ,balance)
+		newHeartBeatData = NewHeartBeatData(true, selfId, blockJson, peerMapJson, addr,peerPublicKey,ifValidTransaction ,transactionInfoJson)
 	}else{
-		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,false ,transactionInfoJson ,balance)
+		newHeartBeatData = NewHeartBeatData(false, selfId, "", peerMapJson, addr,peerPublicKey,false ,transactionInfoJson)
 	}
 	return newHeartBeatData
 }
