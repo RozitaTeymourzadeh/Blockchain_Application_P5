@@ -9,58 +9,30 @@ import (
 	"sync"
 )
 
-/* TransactionJson Struct
-*
-* Data structure for transaction data
-*
- */
-type TransactionJson struct {
-	PublicKey   		string   `json:"publicKey"`
-	EventId     		string   `json:"eventId"`
-	EventName     		string   `json:"eventName"`
-	Timestamp     		string   `json:"eventDate"`
-	EventDescription    string   `json:"eventDescription"`
-	TransactionFee    	string   `json:"transactionFee"`
-	Balance				string	 `json:"balance"`
-}
-
 /* Transaction Struct
 *
 * Data structure for transaction data
 *
  */
 type Transaction struct {
-	PublicKey   		*rsa.PublicKey
-	EventId     		string
-	EventName     		string
-	Timestamp  			int64
-	EventDescription    string
-	TransactionFee    	int
-	Balance				int
+	PublicKey   		*rsa.PublicKey `json:"publicKey"`
+	EventId     		string			`json:"eventId"`
+	EventName     		string			`json:"eventName"`
+	Timestamp  			int64			`json:"eventDate"`
+	EventDescription    string			`json:"eventDescription"`
+	TransactionFee    	int				`json:"transactionFee"`
+	Balance				int				`json:"balance"`
 }
 
-
+/* TransactionPool Struct
+*
+* Data structure for transactionPool
+*
+ */
 type TransactionPool struct {
 	Pool      map[string]Transaction `json:"pool"`
 	Confirmed map[string]bool        `json:"confirmed"`
 	mux       sync.Mutex
-}
-/* NewTransactionJson()
-*
-* To return new transaction data in Json format
-*
- */
-//publicKey string
-func NewTransactionJson(eventId string, publicKey string, eventName string, timestamp string, eventDescription string, transactionFee string, balance string) TransactionJson {
-	return TransactionJson{
-		PublicKey :  publicKey,
-		EventId: eventId,
-		EventName: eventName,
-		Timestamp: timestamp,
-		EventDescription: eventDescription,
-		TransactionFee: transactionFee,
-		Balance: balance,
-	}
 }
 
 /* NewTransaction()
@@ -68,7 +40,6 @@ func NewTransactionJson(eventId string, publicKey string, eventName string, time
 * To return new transaction data
 *
  */
-//publicKey *rsa.PublicKey
 func NewTransaction(eventId string, publicKey *rsa.PublicKey,eventName string, timestamp int64, eventDescription string, transactionFee int, balance int) Transaction {
 	return Transaction{
 		EventId: eventId,
@@ -112,7 +83,11 @@ func (transaction *Transaction) DecodeFromJson(jsonString string) error {
 
 
 
-//Thread Safe
+/* AddToTransactionPool()
+*
+* To add to transaction pool
+*
+ */
 func (txp *TransactionPool) AddToTransactionPool(tx Transaction) { //duplicates in transactinon pool
 	txp.mux.Lock()
 	defer txp.mux.Unlock()
@@ -122,7 +97,11 @@ func (txp *TransactionPool) AddToTransactionPool(tx Transaction) { //duplicates 
 	}
 }
 
-//Thread Safe
+/* DeleteFromTransactionPool()
+*
+* To delete from transaction after processing
+*
+ */
 func (txp *TransactionPool) DeleteFromTransactionPool(transactionId string) {
 	txp.mux.Lock()
 	defer txp.mux.Unlock()
@@ -130,10 +109,20 @@ func (txp *TransactionPool) DeleteFromTransactionPool(transactionId string) {
 	log.Println("In DeleteFromTransactionPool : Deleting  TX:",transactionId)
 }
 
+/* GetTransactionPoolMap()
+*
+* To Get thansaction pool map
+*
+ */
 func (txp *TransactionPool) GetTransactionPoolMap() map[string]Transaction{
 	return txp.Pool
 }
 
+/* DecodeFromJson()
+*
+* To Decode HeartBeatData from json format
+*
+ */
 func (txp *TransactionPool) GetOneTxFromPool(TxPool TransactionPool, userBalance int) *Transaction{
 
 	if len(TxPool.GetTransactionPoolMap()) > 0 {
@@ -149,6 +138,11 @@ func (txp *TransactionPool) GetOneTxFromPool(TxPool TransactionPool, userBalance
 	return nil
 }
 
+/* AddToConfirmedPool
+*
+* To add transaction into the confirmed pool
+*
+ */
 func (txp *TransactionPool) AddToConfirmedPool(tx Transaction) { //duplicates in transactinon pool
 	txp.mux.Lock()
 	defer txp.mux.Unlock()
@@ -164,12 +158,14 @@ func (txp *TransactionPool) AddToConfirmedPool(tx Transaction) { //duplicates in
 	}
 }
 
-
-func (txp *TransactionPool) CheckConfirmedPool(tx Transaction) bool { //duplicates in transactinon pool
+/* CheckConfirmedPool()
+*
+* To check for confirmed pool
+*
+ */
+func (txp *TransactionPool) CheckConfirmedPool(tx Transaction) bool {
 	txp.mux.Lock()
 	defer txp.mux.Unlock()
-
-	//TODO:BUG. Transaction ID's coming "" (NULL) we should return false in that case.
 	if(tx.EventId ==""){
 		fmt.Println("Tx ID is NULL. Returning false for CheckConfirmedPool,TX:",tx.EventId)
 		return false
@@ -183,14 +179,11 @@ func (txp *TransactionPool) CheckConfirmedPool(tx Transaction) bool { //duplicat
 	}
 }
 
-
-/*func NewTransactionPool() *TransactionPool {
-	Pool :=  make(map[string]p5.Transaction)
-	Confirmed:=make(map[string]bool)
-	mutex:=sync.Mutex{}
-	return &TransactionPool{Pool, Confirmed,mutex}
-}*/
-
+/* NewTransactionPool()
+*
+* Create new Transaction pool
+*
+ */
 func NewTransactionPool() TransactionPool {
 	Pool :=  make(map[string]Transaction)
 	Confirmed:=make(map[string]bool)

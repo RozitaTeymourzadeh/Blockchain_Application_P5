@@ -39,13 +39,8 @@ var NONCE_ZERO ="00000"
 
 var newTransactionObject data.Transaction
 var TxPool data.TransactionPool
-//var mpt p4.MerklePatriciaTrie
-
 var userBalance int = 100
-//var transactionFee = 0
-
 var TransactionMap  map[string]data.Transaction
-//var userKey *rsa.PrivateKey
 var minerKey *rsa.PrivateKey
 var Verified  bool = true
 var enoughBalance bool = true
@@ -62,8 +57,8 @@ func init() {
 	SBC = data.NewBlockChain()
 	Peers = data.NewPeerList(Peers.GetSelfId(),32)
 	ifStarted = false
-
 	TransactionMap = make(map[string]data.Transaction)
+
 	/*Init Block*/
 	mpt := p4.MerklePatriciaTrie{}
 	mpt.Initial()
@@ -118,13 +113,8 @@ func Start(w http.ResponseWriter, r *http.Request) {
 
 	/* Start Trying Nonce */
 	minerKey = data.GenerateKeyPair(4096)
-
 	fmt.Println("Public Key:", minerKey.PublicKey)
-	fmt.Println("Private Key::", minerKey)
-
-
-	//publicKeyAsPemStr,_:= data.ExportRsaPublicKeyAsPemStr(&userKey.PublicKey)
-	//Peers.Add(publicKeyAsPemStr,Peers.GetSelfId())
+	fmt.Println("Private Key:", minerKey)
 	Peers.AddPublicKey(&minerKey.PublicKey,Peers.GetSelfId())
 	go StartTryingNonce()
 
@@ -313,8 +303,7 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 	Peers.AddPublicKey(Heart.PeerPublicKey, Heart.Id)
 	Peers.Add(Heart.Addr, Heart.Id)
 	Peers.InjectPeerMapJson(Heart.PeerMapJson, SELF_ADDR)
-	//if (HeartBeatVariable.IfNewBlock && HeartBeatVariable.IfValidTransaction) {
-	if (Heart.IfNewBlock) {
+	if Heart.IfNewBlock {
 		fmt.Println("HeartBeat flag is true!!")
 
 		heartBlock := p4.Block{}
@@ -322,9 +311,7 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Received block! Root:",heartBlock.Value.GetRoot())
 		receivedPuzzle := heartBlock.Header.ParentHash + heartBlock.Header.Nonce + heartBlock.Value.GetRoot()
 		sum := sha3.Sum256([]byte(receivedPuzzle))
-
-		//I can not come to this point when TX is not NULL!!
-		if (strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO)) {
+		if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO) {
 			fmt.Println("Block with SPECIAL PREFIX arrived from:[", r.Host, "]")
 			latestBlocks := SBC.GetLatestBlocks()
 			for i := 0; i < len(latestBlocks); i++ {
@@ -333,66 +320,45 @@ func HeartBeatReceive(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			if (heartBlock.Header.Height == 1) {
-				//TODO: BUG_FIX Check TX if it is inserted before!
-				//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
-				if (TxPool.CheckConfirmedPool(transaction) == false) {
+			if heartBlock.Header.Height == 1 {
+				if TxPool.CheckConfirmedPool(transaction) == false {
 					SBC.Insert(heartBlock)
 					TxPool.DeleteFromTransactionPool(transaction.EventId)
-
-					fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
-
 					TxPool.AddToConfirmedPool(transaction)
 				} else {
-					fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
 					TxPool.DeleteFromTransactionPool(transaction.EventId)
 				}
 			} else {
 				_, flag := SBC.GetBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
 				if flag {
-					fmt.Println("No.Gap.Inserting Heart Beat Block:", heartBlock)
-					//TODO: BUG_FIX Check TX if it is inserted before!
-					//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
-					//if (TxPool.CheckConfirmedPool(transaction) == false&&HeartBeatVariable.Balance!=0) {
-					if (TxPool.CheckConfirmedPool(transaction) == false) {
+					if TxPool.CheckConfirmedPool(transaction) == false {
 						SBC.Insert(heartBlock)
-						fmt.Println("No.Gap.New.SBC:", SBC)
 						TxPool.DeleteFromTransactionPool(transaction.EventId)
-						fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
 						TxPool.AddToConfirmedPool(transaction)
 					} else {
-						fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
 						TxPool.DeleteFromTransactionPool(transaction.EventId)
 					}
 				} else {
 					fmt.Println("Gap.Inserting Heart Beat Block:", heartBlock)
 					AskForBlock(heartBlock.Header.Height-1, heartBlock.Header.ParentHash)
-					//TODO: BUG_FIX Check TX if it is inserted before!
-					//TODO:BUG_FIX After we are adding block to the SBC, we need to delete TX from TxPool.
-					if (TxPool.CheckConfirmedPool(transaction) == false) {
+					if TxPool.CheckConfirmedPool(transaction) == false{
 						SBC.Insert(heartBlock)
-						fmt.Println("Gap.New.SBC:", SBC)
 						TxPool.DeleteFromTransactionPool(transaction.EventId)
-						fmt.Println("NEW.Tx.Pool.Size:",len(TxPool.GetTransactionPoolMap()))
 						TxPool.AddToConfirmedPool(transaction)
 					} else {
-						fmt.Println("Do Not Insert TX. It already confirmed,TX:", transaction.EventId)
 						TxPool.DeleteFromTransactionPool(transaction.EventId)
 					}
 				}
 			}
-
-
 		} else {
-			fmt.Println(" Ignoring incoming Heart Beat Block! Unmatched Puzzle! Calculated Puzzle:", hex.EncodeToString(sum[:]))
-			fmt.Println("TEST.ALPER.RECEIVE********************************************************")
+			fmt.Println("Unmatched Puzzle! Calculated Puzzle:", hex.EncodeToString(sum[:]))
 			fmt.Println("Incoming Heart Beat Block.Hash::", heartBlock.Header.Hash)
 			fmt.Println("Incoming Heart Beat Nonce:", heartBlock.Header.Nonce)
 			fmt.Println("Incoming Heart Beat mpt.Root:", heartBlock.Value.GetRoot())
 			fmt.Println("Calculated Incoming Hash Puzzle:", hex.EncodeToString(sum[:]))
 		}
 	} else {
-		fmt.Println("HeartBeat flag is false! There is no block in heartBeat!")
+		fmt.Println("There is no block in heartBeat!")
 	}
 	Heart.Hops -= 1
 	if Heart.Hops > 0 {
@@ -442,7 +408,6 @@ func AskForBlock(height int32, hash string) {
 			fmt.Println("Get Block after AskForBlock:", missingBlock)
 			fmt.Println("From peer:", key)
 			if !SBC.CheckParentHash(missingBlock) {
-				fmt.Println("Recursive Call,missingBlock.Header.Height-1:" ,missingBlock.Header.Height-1,", missingBlock.Header.ParentHash",missingBlock.Header.ParentHash);
 				AskForBlock(missingBlock.Header.Height-1,missingBlock.Header.ParentHash)
 				fmt.Println("Get Block after recursively AskForBlock:", missingBlock)
 				fmt.Println("From peer:", key)
@@ -481,15 +446,10 @@ func ForwardHeartBeat(heartBeatData data.HeartBeatData) {
 */
 func StartHeartBeat() {
 	fmt.Println("Start Heart Beat!")
-	//data.NewHeartBeatData(ifNewBlock bool, id int32, blockJson string, peerMapJson string, addr string)
 	Peers.Rebalance()
-	//data.PrepareHeartBeatData()
-	//Iterate over peer List and send Post request
 	PeerMap := Peers.GetPeerMap()
 	fmt.Println("Size of PeerMap:",len(PeerMap))
-	//key is address
-	//value is id
-	// Send heart beat to every node !
+
 	for key, value := range PeerMap {
 		fmt.Printf("key[%s] value[%d]\n", key, value)
 		uploadAddress := "http://" + key + "/heartbeat/receive";
@@ -500,19 +460,17 @@ func StartHeartBeat() {
 			log.Fatal(err)
 		}
 
-		mpt:=p4.MerklePatriciaTrie{};
+		mpt:= p4.MerklePatriciaTrie{}
 		heartBearData:= data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapToJson, SELF_ADDR,false,"",mpt ,&minerKey.PublicKey,false,"")
-
 		jsonBytes, err := json.Marshal(heartBearData)
 		req, err := http.NewRequest("POST", uploadAddress, bytes.NewBuffer(jsonBytes))
 		req.Header.Set("X-Custom-Header", "myvalue")
 		req.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, err := client.Do(req)
-		fmt.Println(">>>>>>>>>>>> HeartBeatSent To:[",key,"]>>>>>>>>>>>>>")
+		fmt.Println("---> HeartBeatSent To:[",key,"]")
 		if err != nil {
-			//panic(err)
-			fmt.Println("Problem in peer[",key,"] Deleting peer from Peer List");
+			fmt.Println("Peer issue:  ", key)
 			Peers.Delete(key)
 			return
 		}
@@ -535,8 +493,6 @@ func StartTryingNonce() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	isValidTransaction := false
-	//forever...
-	//	newMpt.Insert(p2.String(2),p2.String(5))
 	for {
 	GetLatestBlock:
 		newMpt := p4.MerklePatriciaTrie{}
@@ -544,7 +500,6 @@ func StartTryingNonce() {
 		blocks := SBC.GetLatestBlocks()
 		STOP_GEN_BLOCK = false
 		var transactionJSON string
-		//Get Thread Safe 1 TX object from Pool.
 		transaction := TxPool.GetOneTxFromPool(TxPool, userBalance)
 		if transaction != nil {
 			transactionJSON, _ = transaction.EncodeToJson()
@@ -555,40 +510,19 @@ func StartTryingNonce() {
 			//
 			//}
 			newMpt.Insert(transaction.EventId, transactionJSON)
-			//fmt.Println("POW..")
 			validateNonce := p4.StringRandom(16)
 			hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(newMpt.GetRoot())
 			sum := sha3.Sum256([]byte(hashPuzzle))
-
-			//fmt.Printf("Found one TX.Plate:%s - Nonce:%s",transaction.Plate,hex.EncodeToString(sum[:5]))
 			if strings.HasPrefix(hex.EncodeToString(sum[:]), NONCE_ZERO) {
-				fmt.Println("***********************************************************************************")
-				fmt.Println("*** HashPuzzle solved:", time.Now().Unix(), ",hashPuzzel:", hex.EncodeToString(sum[:]))
-				fmt.Println("***********************************************************************************")
 				peerMapJson, _ := Peers.PeerMapToJson()
 				transactionJSON, _ = transaction.EncodeToJson()
-				//newMpt.Insert(tempTransactionObject.TransactionId,"apple")
-				fmt.Println("test.mpt:", newMpt)
-
 				heartBeatData := data.PrepareHeartBeatData(&SBC, Peers.GetSelfId(), peerMapJson, SELF_ADDR, true, validateNonce,
 					newMpt, &minerKey.PublicKey, isValidTransaction, transactionJSON)
-
 				heartBlock := p4.Block{}
 				heartBlock.DecodeFromJSON(heartBeatData.BlockJson)
-
 				fmt.Println("heartBlock.Root:",string(heartBlock.Value.GetRoot()))
-
 				testPuzzle:=string(heartBlock.Header.ParentHash) + string(heartBlock.Header.Nonce) + string(heartBlock.Value.GetRoot())
 				sum = sha3.Sum256([]byte(testPuzzle))
-				fmt.Println("testPuzzle:",	hex.EncodeToString(sum[:]))
-
-				if(heartBeatData.IfNewBlock){
-					fmt.Println("Yes.Send new block")
-				}else{
-					fmt.Println("Wierd thing happened!")
-				}
-
-				fmt.Println("startTryingNonce.TransactionJSON:",heartBeatData.TransactionInfoJson)
 				ForwardHeartBeat(heartBeatData)
 				isValidTransaction = false
 				TxPool.DeleteFromTransactionPool(transaction.EventId)
@@ -602,6 +536,13 @@ func StartTryingNonce() {
 	}
 }
 
+
+/* Event()
+*
+* /getevent API
+* /postevent API
+* To enter the event info
+ */
 func Event(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(".....Event method .....")
@@ -620,7 +561,6 @@ func Event(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprintf(w, "HTTP Post = %v\n", r.PostForm)
-		//eventId := r.FormValue("eventId")
 		eventName := r.FormValue("eventName")
 		//eventDate := r.FormValue("eventDate")
 		eventDescription := r.FormValue("eventDescription")
@@ -643,17 +583,14 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(eventDescription)
 		result := buf.String()
 		transactionFee:= data.TransactionFeeCalculation(result)
+		/*Block Validation */
 		if userBalance - transactionFee >= 0 {
-
 			userBalance = userBalance - transactionFee
-			minershortKey:= rsa.PublicKey{}
-			newTransactionObject := data.NewTransaction(eventId, &minershortKey, eventName, newTimestamp, eventDescription, transactionFee, userBalance)
+			//minershortKey:= rsa.PublicKey{}
+			newTransactionObject := data.NewTransaction(eventId, &minerKey.PublicKey, eventName, newTimestamp, eventDescription, transactionFee, userBalance)
 			fmt.Println("Transaction:", newTransactionObject)
 			transactionJSON, _ := newTransactionObject.EncodeToJson()
 			fmt.Println("Transaction JSON:", transactionJSON)
-
-
-
 			go TxPool.AddToTransactionPool(newTransactionObject)
 
 		} else {
@@ -664,14 +601,17 @@ func Event(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
+/* Event()
+*
+* /getQueryEvent API
+* /postQueryEvent API
+* To search the event info
+ */
 func QueryEvent(w http.ResponseWriter, r *http.Request) {
 	log.Println("Event method is triggered!")
 
 	switch r.Method {
 	case "GET":
-		log.Println("GET Event triggered!")
-
 		dir, err := os.Getwd()
 		if err != nil {
 			log.Fatal(err)
@@ -680,21 +620,15 @@ func QueryEvent(w http.ResponseWriter, r *http.Request) {
 
 		http.ServeFile(w, r, "QueryEvent.html")
 	case "POST":
-		log.Println("POST Event triggered!")
-
-
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
-
-		//fmt.Fprintf(w, "HTTP Post sent to Server! PostForm = %v\n", r.PostForm)
 		eventId := r.FormValue("eventId")
 		fmt.Fprintf(w, "Event ID = %s\n", eventId)
 		fmt.Fprintf(w, "SEARCH RESULT = %s\n", SBC.GetEventInfornation(eventId))
-
 	default:
-		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
+		fmt.Fprintf(w, "Wrong method !")
 	}
 }
 

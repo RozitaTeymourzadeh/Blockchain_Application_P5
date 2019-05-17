@@ -78,9 +78,5 @@
 			log.Fatal(http.ListenAndServe(":6686", router))
 		}
 
-
-
-
-
 	}
 

@@ -176,6 +176,11 @@ func (sbc *SyncBlockChain) Canonical() string {
 	return sbc.bc.Canonical()
 }
 
+/* GetEventInfornation()
+*
+* To get event information
+*
+ */
 func (sbc *SyncBlockChain) GetEventInfornation(eventId string) string {
 	sbc.mux.Lock()
 	defer sbc.mux.Unlock()
