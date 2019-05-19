@@ -5,6 +5,7 @@ import (
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/data"
 	"MerklePatriciaTree/p5/Blockchain_Application_P5/p4"
 	"bytes"
+	"crypto"
 	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
@@ -42,8 +43,12 @@ var TxPool data.TransactionPool
 var userBalance int = 100
 var TransactionMap  map[string]data.Transaction
 var minerKey *rsa.PrivateKey
-var Verified  bool = true
-var enoughBalance bool = true
+var Verified  bool = false
+var enoughBalance bool = false
+var transactionReady = false
+var Signature []byte
+var hashed []byte
+var h crypto.Hash
 
 /* init()
 *
@@ -504,11 +509,16 @@ func StartTryingNonce() {
 		if transaction != nil {
 			transactionJSON, _ = transaction.EncodeToJson()
 
-			//if Verified && enoughBalance {
-			//	//fmt.Println("Signature verified: ", Verified)
-			//	//fmt.Println("User has enough money: ", enoughBalance)
-			//
-			//}
+			if Verified && enoughBalance {
+
+				encryptedPKCS1v15 := []byte(transactionJSON)
+				decryptedPKCS1v15 := data.DecryptPKCS (minerKey, encryptedPKCS1v15)
+				Verified, _ := data.VerifyPKCS (&minerKey.PublicKey, h, hashed, Signature)
+				fmt.Println("Decrypted message is: ", decryptedPKCS1v15)
+				fmt.Println("Signature verified: ", Verified)
+				fmt.Println("User has enough money: ", enoughBalance)
+
+			}
 			newMpt.Insert(transaction.EventId, transactionJSON)
 			validateNonce := p4.StringRandom(16)
 			hashPuzzle := string(blocks[0].Header.Hash) + string(validateNonce) + string(newMpt.GetRoot())
@@ -568,19 +578,14 @@ func Event(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Event Name: %s\n", eventName)
 		//fmt.Fprintf(w, "Event Date: %d\n", eventDate)
 		fmt.Fprintf(w, "Event Description: %s\n", eventDescription)
-		//encryptedPKCS1v15 := data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
-		//fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15)
-		//encryptedPKCS1v15Str := string(encryptedPKCS1v15)
-		//h, hashed, signature := data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
-		//fmt.Println("User Signature is:", signature)
-		//fmt.Println("h is:", h)
-		//fmt.Println("hashed is:", hashed)
-		eventId := p4.StringRandom(16)
-		newTimestamp := time.Now().Unix()
-		buf := bytes.Buffer{}
-		buf.WriteString(eventId)
-		buf.WriteString(eventName)
-		buf.WriteString(eventDescription)
+
+			eventId := p4.StringRandom(16)
+			newTimestamp := time.Now().Unix()
+			buf := bytes.Buffer{}
+			buf.WriteString(eventId)
+			buf.WriteString(eventName)
+			buf.WriteString(eventDescription)
+
 		result := buf.String()
 		transactionFee:= data.TransactionFeeCalculation(result)
 		/*Block Validation */
@@ -591,6 +596,15 @@ func Event(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Transaction:", newTransactionObject)
 			transactionJSON, _ := newTransactionObject.EncodeToJson()
 			fmt.Println("Transaction JSON:", transactionJSON)
+			if transactionReady {
+				encryptedPKCS1v15 := data.EncryptPKCS(&minerKey.PublicKey, transactionJSON)
+				fmt.Println("encryptedPKCS1v15 is:", encryptedPKCS1v15)
+				encryptedPKCS1v15Str := string(encryptedPKCS1v15)
+				h, hashed, signature := data.SignPKCS(encryptedPKCS1v15Str, minerKey) //Private Key
+				fmt.Println("User Signature is:", signature)
+				fmt.Println("h is:", h)
+				fmt.Println("hashed is:", hashed)
+			}
 			go TxPool.AddToTransactionPool(newTransactionObject)
 
 		} else {

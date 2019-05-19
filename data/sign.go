@@ -15,7 +15,14 @@ import (
 	"io"
 	"log"
 	"os"
+	//"sync"
 )
+
+type Signature struct {
+	Signature []byte
+	hashed []byte
+	h crypto.Hash
+}
 
 /* Event()
 *
@@ -42,7 +49,7 @@ func checkError(err error) {
 		os.Exit(1)
 	}
 }
-s
+
 /*PrivateKeyToBytes()
 *
 * To PublicKeyToBytes public key to bytes
